@@ -9,7 +9,7 @@ from nets.classify import vgg
 from tqdm import tqdm
 from utils.callbacks import LossHistory
 from utils.fit_one_epoch import cls_fit_one_epoch
-from data.dataset import gen_dataloader
+from data.dataset import cls_dataloader
 from torchvision.transforms import v2
 torchvision.disable_beta_transforms_warning()
 
@@ -27,17 +27,16 @@ if __name__=='__main__':
     # model
     # -----------------------------------
     n_classes = 2
-    model_name = 'vgg16'
-    model = vgg(model_name, n_classes, freezing = True)
-
+    model_name = 'vgg19'
+    model = vgg(model_name, n_classes)
     model = model.to(device=device)
 
     # -----------------------------------
     # optimizer
     # -----------------------------------
-    lr_rate = 0.01
-    milestones = [5500, 11000, 22000]
-    warmup_milestones = [100, 300, 600]
+    lr_rate = 0.001
+    milestones = [15000, 20000, 45000]
+    warmup_milestones = [3000, 6000, 9000]
     params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.SGD(params, lr=lr_rate, momentum=0.2)
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones, 0.1)
@@ -46,24 +45,25 @@ if __name__=='__main__':
     # -----------------------------------
     # data_loader
     # -----------------------------------
-    img_txt = 'E:/ray_workspace/CrossAestheticYOLOv8/data/broken_clean_img.txt'
-    img_path = 'E:/Datasets/ICText/train2021/'
-    json_path = 'E:/Datasets/ICText/annotation/GOLD_REF_TRAIN_FINAL.json'
+    cls_dir = 'D:/Datasets/ICText_cls/train/'
     batch_size = 20
     shuffle = True
-    epochs = 20
-    with open(img_txt) as f:
-        img_ids = f.readlines()
-    train_iter = len(img_ids)//batch_size
+    epochs = 400
     transform = v2.Compose([
         v2.ToDtype(torch.float32),
         v2.Normalize(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375])]
     )
+    train_data_loader = cls_dataloader(cls_dir, transform, batch_size=batch_size, shuffle=True, num_workers=2)
+    train_iter = len(train_data_loader.dataset)//batch_size
 
-    train_data_loader = gen_dataloader(img_txt, img_path, json_path, transform, batch_size, shuffle)
-
-    val_iter = None
-    val_data_loader = None
+    cls_dir = 'D:/Datasets/ICText_cls/test/'
+    batch_size = 1
+    transform = v2.Compose([
+        v2.ToDtype(torch.float32),
+        v2.Normalize(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375])]
+    )
+    val_data_loader = cls_dataloader(cls_dir, transform, batch_size=batch_size, shuffle=False, num_workers=1, device=device)
+    val_iter = len(val_data_loader.dataset)//batch_size
 
     # -----------------------------------
     # Log
@@ -74,5 +74,7 @@ if __name__=='__main__':
     # -----------------------------------
     # fit one epoch (train & validation)
     # -----------------------------------
+    best_top1 = 0
+    best_epoch = 1
     for epoch in range(1, epochs+1):
-        cls_fit_one_epoch(epoch, epochs, optimizer, model, lr_scheduler, warmup, train_iter, val_iter, train_data_loader, val_data_loader, n_classes+1, save_period=1, device=device)
+        best_top1, best_epoch = cls_fit_one_epoch(epoch, epochs, optimizer, model, lr_scheduler, warmup, train_iter, val_iter, train_data_loader, val_data_loader, save_period=1, save_dir='checkpoints/'+model_name, device=device, best_top1=best_top1, best_epoch=best_epoch )
