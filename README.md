@@ -12,5 +12,7 @@ The “broken” style characters are most worth to deal with, so that Gan model
 ![image](https://github.com/okok009/Cross-Aesthetic-YOLOv8-reading-text-on-ICs/blob/master/assets/Retraining%20yolov8%20backbone.png)
 ## References
 [1] Jocher, G., Chaurasia, A., & Qiu, J. (2023). Ultralytics YOLO (Version 8.0.0) [Computer software]. https://github.com/ultralytics/ultralytics
-\n[2] Ng, Chun Chet, Lin, Che-Tsung, Tan, Zhi Qin, Wang, Xinyu, Kew, Jie Long, Chan, Chee Seng, & Zach, Christopher. (2024). "When IC meets text: Towards a rich annotated integrated circuit text dataset." [Pattern Recognition]. https://doi.org/10.1016/j.patcog.2023.110124
-\n[3] Choi, Sungha, et al. "Robustnet: Improving domain generalization in urban-scene segmentation via instance selective whitening." CVPR. 2021.
+
+[2] Ng, Chun Chet, Lin, Che-Tsung, Tan, Zhi Qin, Wang, Xinyu, Kew, Jie Long, Chan, Chee Seng, & Zach, Christopher. (2024). "When IC meets text: Towards a rich annotated integrated circuit text dataset." [Pattern Recognition]. https://doi.org/10.1016/j.patcog.2023.110124
+
+[3] Choi, Sungha, et al. "Robustnet: Improving domain generalization in urban-scene segmentation via instance selective whitening." CVPR. 2021.
