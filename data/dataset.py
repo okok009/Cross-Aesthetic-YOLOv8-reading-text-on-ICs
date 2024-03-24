@@ -7,6 +7,24 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import v2
 import time
 
+class GenDataset(Dataset):
+    def __init__(self, img_dir, transform=None, device = 'cpu'):
+        self.img_path = img_dir
+        self.img_ids = os.listdir(img_dir)
+        self.transform = transform
+        self.device = device
+
+    def __len__(self):
+        return len(self.img_ids)
+
+    def __getitem__(self, idx):
+        image = read_image(self.img_path + "/" + self.img_ids[idx])
+        image = image / 255
+        if self.transform:
+            image = self.transform(image)
+
+        return image
+
 class ClsDataset(Dataset):
     def __init__(self, cls_dir, transform=None, device = 'cpu'):
         self.img_path = cls_dir
@@ -79,6 +97,12 @@ def seg_dataloader(image_path: str, label_path: str, target_info: tuple, batch_s
 
 def cls_dataloader(cls_dir, transform, batch_size=1, shuffle=False, num_workers=2, device='cpu'):
     dataset = ClsDataset(cls_dir, transform=transform, device=device)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
+
+    return dataloader
+
+def gen_dataloader(img_dir, transform, batch_size=1, shuffle=False, num_workers=2, device='cpu'):
+    dataset = GenDataset(img_dir, transform=transform, device=device)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
 
     return dataloader

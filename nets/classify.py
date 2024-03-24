@@ -3,8 +3,17 @@ import torchvision
 import torch.nn as nn
 from torchvision.models.vgg import VGG16_Weights, VGG19_Weights
 
+class Cls_model(nn.Module):
+    '''
+    待整理 ---> backbone ---> classifier
+    '''
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
 def vgg(model_name = 'vgg16', n_classes=2, freezing=False):
-    
+    '''
+    Using pytorch vgg model, and change the classifier to match n_classes.
+    '''
     if model_name == 'vgg16':
         vgg = torchvision.models.vgg16(weights=VGG16_Weights.DEFAULT)
     elif model_name == 'vgg19':

@@ -1,7 +1,15 @@
 from typing import Any
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+import ignite.metrics as metrics
 import numpy as np
+from collections import OrderedDict
+# from ignite.engine import Engine
+# from ignite.metrics import SSIM
+from utils.pytorch_ssim_master.pytorch_ssim import SSIM
+
+# create default evaluator for doctests
 
 def seg_loss_bce(output, target, mode='train'):
     m = nn.Softmax(dim=1)
@@ -80,3 +88,39 @@ def cls_loss_bce(output, target):
     loss = loss_fn(output, target)
 
     return loss
+
+def ssim(output, target):
+    '''
+    Cite by https://github.com/Po-Hsun-Su/pytorch-ssim.git
+    '''
+    device = output.device
+    target = target.to(device)
+    metric = SSIM()
+    ssim = metric(output, target)
+
+    return ssim
+
+def ahash(output, target, kernel_size=11, sigma=1.5):
+    device = output.device
+    target = target.to(device)
+
+    ksize_half = (kernel_size - 1) * 0.5
+    kernel = torch.linspace(-ksize_half, ksize_half, steps=kernel_size, device=device)
+    gauss = torch.exp(-0.5 * (kernel / sigma).pow(2))
+    gauss = (gauss / gauss.sum()).unsqueeze(dim=0)
+    weight = torch.matmul(gauss.t(), gauss)
+    if weight.shape[0] != output.shape[1]:
+        weight = weight.expand(output.shape[1], output.shape[1], -1, -1)
+    weight = weight.to(device=device, dtype=output.dtype)
+    gauss_output = F.conv2d(output, weight)
+    gauss_target = F.conv2d(target, weight)
+    average_output = torch.sum(gauss_output, (-1, -2)) / (gauss_output.shape[-1] * gauss_output.shape[-2])
+    average_target = torch.sum(gauss_target, (-1, -2)) / (gauss_target.shape[-1] * gauss_target.shape[-2])
+    for i in range(gauss_output.shape[0]):
+        for j in range(gauss_output.shape[1]):
+            gauss_output[i, j] = gauss_output[i, j] > average_output[i, j]
+            gauss_target[i, j] = gauss_target[i, j] > average_target[i, j]
+    ahash = gauss_output != gauss_target
+    ahash = ahash.to(dtype=torch.float)
+    ahash = ahash.sum() / (gauss_target.shape[-1] * gauss_target.shape[-2])
+    return(ahash)

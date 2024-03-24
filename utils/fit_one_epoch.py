@@ -4,14 +4,28 @@ import os
 import numpy as np
 import torchvision
 from tqdm import tqdm
-from utils.score import cls_loss_bce, seg_loss_bce, seg_loss_class, seg_miou
+from utils.score import cls_loss_bce, seg_loss_bce, seg_loss_class, seg_miou, ssim
 torchvision.disable_beta_transforms_warning()
 
 def get_lr(optimizer):
     for param_group in optimizer.param_groups:
         return param_group['lr']
 
-def cls_fit_one_epoch(epoch, epochs, optimizer, model, lr_scheduler, warmup, train_iter, val_iter, train_data_loader, val_data_loader, save_period=2, save_dir='checkpoints', device='cpu', best_top1=0, best_epoch=0):
+def cls_fit_one_epoch(epoch,
+                       epochs,
+                       optimizer,
+                       model,
+                       lr_scheduler,
+                       warmup,
+                       train_iter,
+                       val_iter,
+                       train_data_loader,
+                       val_data_loader,
+                       save_period=2,
+                       save_dir='checkpoints',
+                       device='cpu',
+                       best_top1=0,
+                       best_epoch=0):
     print('---------------start training---------------')
     loss_ep = 0
     model.train()
@@ -30,8 +44,8 @@ def cls_fit_one_epoch(epoch, epochs, optimizer, model, lr_scheduler, warmup, tra
             pbar.set_postfix(**{'batch_loss'    : loss, 
                                 'lr'            : get_lr(optimizer)})
             pbar.update(1)
-            lr_scheduler.step()
-            warmup.step()
+            if lr_scheduler is not None: lr_scheduler.step()
+            if warmup is not None: warmup.step()
     loss_ep /= train_iter
     print('\n---------------start validate---------------')
     val_loss = 0
@@ -71,7 +85,21 @@ def cls_fit_one_epoch(epoch, epochs, optimizer, model, lr_scheduler, warmup, tra
    
     return best_top1, best_epoch
 
-def seg_fit_one_epoch(epoch, epochs, optimizer, model, lr_scheduler, train_iter, val_iter, train_data_loader, val_data_loader, loss_history, num_classes, save_period=2, save_dir='checkpoints', device= 'cpu'):
+def seg_fit_one_epoch(epoch,
+                       epochs,
+                       optimizer,
+                       model,
+                       lr_scheduler,
+                       warmup,
+                       train_iter,
+                       val_iter,
+                       train_data_loader,
+                       val_data_loader,
+                       loss_history,
+                       num_classes,
+                       save_period=2,
+                       save_dir='checkpoints',
+                       device= 'cpu'):
     print('---------------start training---------------')
     loss_ep = 0
     model.train()
@@ -90,7 +118,8 @@ def seg_fit_one_epoch(epoch, epochs, optimizer, model, lr_scheduler, train_iter,
             pbar.set_postfix(**{'batch_loss'    : loss, 
                                 'lr'            : get_lr(optimizer)})
             pbar.update(1)
-            lr_scheduler.step()
+            if lr_scheduler is not None: lr_scheduler.step()
+            if warmup is not None: warmup.step()
     loss_ep = loss_ep / train_iter
     print('---------------start validate---------------')
     val_loss = 0
@@ -120,3 +149,93 @@ def seg_fit_one_epoch(epoch, epochs, optimizer, model, lr_scheduler, train_iter,
 
     if epoch % save_period == 0 or epoch == epochs:
         torch.save(model.state_dict(), os.path.join('E:/ray_workspace/defnet', save_dir, f'ep{epoch}-val_loss{val_loss}-miou{mious}.pth'))
+
+def gen_fit_one_epoch(epoch,
+                       epochs,
+                       optimizer,
+                       gen_model,
+                       dis_model,
+                       lr_scheduler,
+                       warmup,
+                       train_iter,
+                       val_iter,
+                       train_data_loader,
+                       val_data_loader,
+                       save_period=2,
+                       save_dir='checkpoints',
+                       device='cpu',
+                       best_ssim=0,
+                       best_epoch=0):
+    '''
+    gen_cls_onehot = [0, 1] ---> input is clean imgs and want to generate Only_broken imgs
+    '''
+    print('---------------start training---------------')
+    loss_ep = 0
+    gen_model.train()
+    dis_model.eval()
+    with tqdm(total=train_iter, desc=f'Epoch {epoch}/{epochs}') as pbar:
+        for img in train_data_loader:
+            img = img.to(device)
+            gen_cls_onehot = torch.zeros([img.shape[0], 2]) 
+            gen_cls_onehot[:, 1] = 1 # if img_dir is Only_broken_img then onehot should be [1, 0]
+            gen_cls_onehot = gen_cls_onehot.to(device)
+            output = gen_model(img)
+            ssim_loss = 1 - ssim(output, img)
+            loss = ssim_loss
+            if epoch > 400:
+                cls_output = dis_model(output)
+                img_loss = cls_loss_bce(cls_output, target=gen_cls_onehot)
+                loss = 0.2 * loss + 0.8 * img_loss
+
+            optimizer.zero_grad()
+            loss.backward()
+            loss_ep += float(loss.data.cpu().numpy())
+            optimizer.step()
+
+            pbar.set_postfix(**{'batch_loss'    : loss, 
+                                'lr'            : get_lr(optimizer)})
+            pbar.update(1)
+            if lr_scheduler is not None: lr_scheduler.step()
+            if warmup is not None: warmup.step()
+    loss_ep /= train_iter
+    print('\n---------------start validate---------------')
+    val_loss = 0
+    gen_model.eval()
+    with tqdm(total=val_iter,desc=f'Epoch {epoch}/{epochs}',postfix=dict) as pbar:
+        with torch.no_grad():
+            for img in val_data_loader:
+                img = img.to(device)
+                gen_cls_onehot = torch.zeros([img.shape[0], 2]) 
+                gen_cls_onehot[:, 1] = 1 # if img_dir is Only_broken_img then onehot should be [1, 0]
+                gen_cls_onehot = gen_cls_onehot.to(device)
+                output = gen_model(img)
+                ssim_loss = 1 - ssim(output, img)
+                loss = ssim_loss
+                if epoch > 400:
+                    cls_output = dis_model(output)
+                    img_loss = cls_loss_bce(cls_output, target=gen_cls_onehot)
+                    loss = 0.2 * loss + 0.8 * img_loss
+                val_loss += float(loss.data.cpu().numpy())
+                pbar.update(1)       
+    val_loss /= val_iter
+
+   
+
+    if epoch == 1:
+        torch.save(gen_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, f'best.pth'))
+        torch.save(gen_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, f'last.pth'))
+        best_ssim = val_loss
+        best_epoch = epoch
+
+
+    elif epoch % save_period == 0 or epoch == epochs:
+        if val_loss < best_ssim:
+            torch.save(gen_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, f'best.pth'))
+            best_ssim = val_loss
+            best_epoch = epoch
+        torch.save(gen_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, f'last.pth'))
+    
+    print(f'\ntrain_loss:{loss_ep} || val_loss:{val_loss} || best_val_ssim:{best_ssim} || best_epoch:{best_epoch}\n')
+    if epoch == 400:
+        print(f'Epoch {epoch + 1} is coming. The loss will become mix loss (ssim and cls).')
+    return best_ssim, best_epoch
