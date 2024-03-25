@@ -172,7 +172,7 @@ def gen_fit_one_epoch(epoch,
     print('---------------start training---------------')
     loss_ep = 0
     gen_model.train()
-    dis_model.eval()
+    dis_model.train()
     with tqdm(total=train_iter, desc=f'Epoch {epoch}/{epochs}') as pbar:
         for img in train_data_loader:
             img = img.to(device)
@@ -180,12 +180,16 @@ def gen_fit_one_epoch(epoch,
             gen_cls_onehot[:, 1] = 1 # if img_dir is Only_broken_img then onehot should be [1, 0]
             gen_cls_onehot = gen_cls_onehot.to(device)
             output = gen_model(img)
+            print('output: ', output)
             ssim_loss = 1 - ssim(output, img)
-            loss = ssim_loss
-            if epoch > 400:
+            if epoch > 0:
                 cls_output = dis_model(output)
+                print('cls_output: ', cls_output)
                 img_loss = cls_loss_bce(cls_output, target=gen_cls_onehot)
-                loss = 0.2 * loss + 0.8 * img_loss
+                # loss = 0.02 * ssim_loss + 0.08 * img_loss
+                loss = img_loss
+            else:
+                loss = ssim_loss
 
             optimizer.zero_grad()
             loss.backward()
@@ -211,7 +215,7 @@ def gen_fit_one_epoch(epoch,
                 output = gen_model(img)
                 ssim_loss = 1 - ssim(output, img)
                 loss = ssim_loss
-                if epoch > 400:
+                if epoch > 0:
                     cls_output = dis_model(output)
                     img_loss = cls_loss_bce(cls_output, target=gen_cls_onehot)
                     loss = 0.2 * loss + 0.8 * img_loss
@@ -239,3 +243,73 @@ def gen_fit_one_epoch(epoch,
     if epoch == 400:
         print(f'Epoch {epoch + 1} is coming. The loss will become mix loss (ssim and cls).')
     return best_ssim, best_epoch
+
+def gen_fit_one_epoch_1(epoch,
+                       epochs,
+                       optimizer,
+                       gan_model,
+                       lr_scheduler,
+                       warmup,
+                       train_iter,
+                       val_iter,
+                       train_data_loader,
+                       val_data_loader,
+                       save_period=2,
+                       save_dir='checkpoints',
+                       device='cpu',
+                       best_val=0,
+                       best_epoch=0):
+    '''
+    gen_cls_onehot = [0, 1] ---> input is clean imgs and want to generate Only_broken imgs
+    '''
+    print('---------------start training---------------')
+    loss_ep = 0
+    gan_model.train()
+    with tqdm(total=train_iter, desc=f'Epoch {epoch}/{epochs}') as pbar:
+        for img in train_data_loader:
+            img = img.to(device)
+            gen_cls_onehot = torch.zeros([img.shape[0], 2]) 
+            gen_cls_onehot[:, 1] = 1 # if img_dir is Only_broken_img then onehot should be [1, 0]
+            gen_cls_onehot = gen_cls_onehot.to(device)
+            loss, loss_ep, optimizer = gan_model.process(img, gen_cls_onehot, loss_ep, optimizer)
+
+            pbar.set_postfix(**{'batch_loss'    : loss, 
+                                'lr'            : get_lr(optimizer)})
+            pbar.update(1)
+            if lr_scheduler is not None: lr_scheduler.step()
+            if warmup is not None: warmup.step()
+    loss_ep /= train_iter
+    print('\n---------------start validate---------------')
+    val_loss = 0
+    gan_model.eval()
+    with tqdm(total=val_iter,desc=f'Epoch {epoch}/{epochs}',postfix=dict) as pbar:
+        with torch.no_grad():
+            for img in val_data_loader:
+                img = img.to(device)
+                gen_cls_onehot = torch.zeros([img.shape[0], 2]) 
+                gen_cls_onehot[:, 1] = 1 # if img_dir is Only_broken_img then onehot should be [1, 0]
+                gen_cls_onehot = gen_cls_onehot.to(device)
+                loss, val_loss = gan_model.process(img, gen_cls_onehot, val_loss, train=False)
+                pbar.update(1)       
+    val_loss /= val_iter
+
+   
+
+    if epoch == 1:
+        torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, f'best.pth'))
+        torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, f'last.pth'))
+        best_val = val_loss
+        best_epoch = epoch
+
+
+    elif epoch % save_period == 0 or epoch == epochs:
+        if val_loss < best_val:
+            torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, f'best.pth'))
+            best_val = val_loss
+            best_epoch = epoch
+        torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, f'last.pth'))
+    
+    print(f'\ntrain_loss:{loss_ep} || val_loss:{val_loss} || best_val_loss:{best_val} || best_epoch:{best_epoch}\n')
+    if epoch == 400:
+        print(f'Epoch {epoch + 1} is coming. The loss will become mix loss (ssim and cls).')
+    return best_val, best_epoch

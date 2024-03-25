@@ -27,7 +27,7 @@ if __name__=='__main__':
     # model
     # -----------------------------------
     n_classes = 2
-    model_name = 'vgg19'
+    model_name = 'vgg16'
     model = vgg(model_name, n_classes)
     model = model.to(device=device)
 
@@ -50,8 +50,7 @@ if __name__=='__main__':
     shuffle = True
     epochs = 400
     transform = v2.Compose([
-        v2.ToDtype(torch.float32),
-        v2.Normalize(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375])]
+        v2.ToDtype(torch.float32)]
     )
     train_data_loader = cls_dataloader(cls_dir, transform, batch_size=batch_size, shuffle=True, num_workers=2)
     train_iter = len(train_data_loader.dataset)//batch_size
@@ -59,8 +58,7 @@ if __name__=='__main__':
     cls_dir = 'D:/Datasets/ICText_cls/test/'
     batch_size = 1
     transform = v2.Compose([
-        v2.ToDtype(torch.float32),
-        v2.Normalize(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375])]
+        v2.ToDtype(torch.float32)]
     )
     val_data_loader = cls_dataloader(cls_dir, transform, batch_size=batch_size, shuffle=False, num_workers=1, device=device)
     val_iter = len(val_data_loader.dataset)//batch_size
@@ -77,4 +75,18 @@ if __name__=='__main__':
     best_top1 = 0
     best_epoch = 1
     for epoch in range(1, epochs+1):
-        best_top1, best_epoch = cls_fit_one_epoch(epoch, epochs, optimizer, model, lr_scheduler, warmup, train_iter, val_iter, train_data_loader, val_data_loader, save_period=1, save_dir='checkpoints/'+model_name, device=device, best_top1=best_top1, best_epoch=best_epoch )
+        best_top1, best_epoch = cls_fit_one_epoch(epoch,
+                                                   epochs,
+                                                   optimizer,
+                                                   model,
+                                                   lr_scheduler,
+                                                   warmup,
+                                                   train_iter,
+                                                   val_iter,
+                                                   train_data_loader,
+                                                   val_data_loader,
+                                                   save_period=1,
+                                                   save_dir='checkpoints/'+model_name,
+                                                   device=device,
+                                                   best_top1=best_top1,
+                                                   best_epoch=best_epoch )

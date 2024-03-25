@@ -7,9 +7,11 @@ import numpy as np
 import datetime
 from nets.classify import vgg
 from nets.unet_def import unt_rdefnet18
+from nets.gan import GanModel
 from tqdm import tqdm
 from utils.callbacks import LossHistory
-from utils.fit_one_epoch import cls_fit_one_epoch, gen_fit_one_epoch
+from utils.fit_one_epoch import cls_fit_one_epoch, gen_fit_one_epoch, gen_fit_one_epoch_1
+from utils.optimizer import adam, sgd
 from data.dataset import cls_dataloader, gen_dataloader
 from torchvision.transforms import v2
 torchvision.disable_beta_transforms_warning()
@@ -30,27 +32,35 @@ if __name__=='__main__':
     n_classes = 2
 
     gen_model_name = 'unt_rdefnet18'
-    gen_model = unt_rdefnet18(3, input_size=120)
+    gen_weight = f'checkpoints/{gen_model_name}/best_clean.pth'
+    gen_model = unt_rdefnet18(3, gen_weight, input_size=120)
     gen_model = gen_model.to(device=device)
 
     dis_model_name = 'vgg19'
     dis_weight = f'checkpoints/{dis_model_name}/best.pth'
     dis_weight = torch.load(dis_weight)
-    dis_model = vgg(dis_model_name, n_classes)
+    dis_model = vgg(dis_model_name, n_classes, freezing=True)
     dis_model.load_state_dict(dis_weight)
     dis_model = dis_model.to(device=device)
+
+    gen_model_name = 'GanModel'
+    model = GanModel(gen_model, dis_model)
+    # for param in dis_model.parameters():
+    #     param.requires_grad = False
 
 
     # -----------------------------------
     # optimizer
     # -----------------------------------
-    lr_rate = 0.001
+    lr_rate = 0.01
     milestones = [15000, 20000, 45000]
     warmup_milestones = [3000, 6000, 9000]
-    params = [p for p in gen_model.parameters() if p.requires_grad]
-    optimizer = torch.optim.SGD(params, lr=lr_rate, momentum=0.2)
-    lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones, 0.1)
-    warmup = torch.optim.lr_scheduler.MultiStepLR(optimizer, warmup_milestones, 2)
+    params = [p for p in model.generator.parameters() if p.requires_grad]
+    momentum = 0.2
+    step = 0.1
+    warm_step = 2
+    
+    optimizer, lr_scheduler, warmup = sgd(params, lr_rate, momentum, milestones, step, warmup_milestones, warm_step)
 
     # -----------------------------------
     # data_loader
@@ -83,13 +93,12 @@ if __name__=='__main__':
     # fit one epoch (train & validation)
     # -----------------------------------
     best_epoch = 1
-    best_ssim = 0
+    best_val = 0
     for epoch in range(1, epochs+1):
-        best_ssim, best_epoch = gen_fit_one_epoch(epoch,
+        best_val, best_epoch = gen_fit_one_epoch_1(epoch,
                                         epochs,
                                         optimizer,
-                                        gen_model,
-                                        dis_model,
+                                        model,
                                         lr_scheduler,
                                         warmup,
                                         train_iter,
@@ -100,4 +109,21 @@ if __name__=='__main__':
                                         save_dir='checkpoints/'+gen_model_name,
                                         device=device,
                                         best_epoch=best_epoch,
-                                        best_ssim=best_ssim)
+                                        best_val=best_val)
+# for epoch in range(1, epochs+1):
+#         best_ssim, best_epoch = gen_fit_one_epoch(epoch,
+#                                         epochs,
+#                                         optimizer,
+#                                         gen_model,
+#                                         dis_model,
+#                                         lr_scheduler,
+#                                         warmup,
+#                                         train_iter,
+#                                         val_iter,
+#                                         train_data_loader,
+#                                         val_data_loader,
+#                                         save_period=1,
+#                                         save_dir='checkpoints/'+gen_model_name,
+#                                         device=device,
+#                                         best_epoch=best_epoch,
+#                                         best_ssim=best_ssim)

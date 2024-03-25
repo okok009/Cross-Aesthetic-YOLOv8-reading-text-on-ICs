@@ -73,7 +73,6 @@ def unt_sdefnet18(num_classes=2, pretrained_own=None):
         model.load_state_dict(pretrained_own)
     else:
         model = Unet_model(sdefnet18(), in_channels_list, num_classes=num_classes)
-    
     return model
 
 def unt_srdefnet18(num_classes=2, pretrained_own=None):
@@ -92,7 +91,7 @@ def unt_srdefnet18(num_classes=2, pretrained_own=None):
     
     return model
 
-def unt_rdefnet18(num_classes=2, pretrained_own=None, input_size=400):
+def unt_rdefnet18(num_classes=2, pretrained_own=None, input_size=400, freezing=False):
     '''
     num_classes : colorlabels的種類個數
 
@@ -106,6 +105,10 @@ def unt_rdefnet18(num_classes=2, pretrained_own=None, input_size=400):
     else:
         model = Unet_model(rdefnet18(), in_channels_list, num_classes=num_classes, input_size=input_size)
     
+    if freezing:
+        for param in model.backbone.parameters():
+            param.requires_grad = False
+
     return model
 
 def unt_sdefnet34(num_classes=2, pretrained_own=None):

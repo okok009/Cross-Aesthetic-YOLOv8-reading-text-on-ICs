@@ -100,6 +100,14 @@ def ssim(output, target):
 
     return ssim
 
+def l1_loss(output, target):
+    device = output.device
+    target = target.to(device)
+    metric = nn.L1Loss()
+    l1_loss = metric(output, target)
+
+    return l1_loss
+
 def ahash(output, target, kernel_size=11, sigma=1.5):
     device = output.device
     target = target.to(device)
