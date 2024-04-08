@@ -5,6 +5,7 @@ import numpy as np
 import torchvision
 from tqdm import tqdm
 from utils.score import cls_loss_bce, seg_loss_bce, seg_loss_class, seg_miou, ssim
+from gan_pred import gan_pred
 torchvision.disable_beta_transforms_warning()
 
 def get_lr(optimizer):
@@ -246,10 +247,7 @@ def gen_fit_one_epoch(epoch,
 
 def gen_fit_one_epoch_1(epoch,
                        epochs,
-                       optimizer,
                        gan_model,
-                       lr_scheduler,
-                       warmup,
                        train_iter,
                        val_iter,
                        train_data_loader,
@@ -263,22 +261,118 @@ def gen_fit_one_epoch_1(epoch,
     gen_cls_onehot = [0, 1] ---> input is clean imgs and want to generate Only_broken imgs
     '''
     print('---------------start training---------------')
-    loss_ep = 0
+    gen_loss_ep = 0
+    dis_loss_ep = 0
     gan_model.train()
     with tqdm(total=train_iter, desc=f'Epoch {epoch}/{epochs}') as pbar:
         for img in train_data_loader:
             img = img.to(device)
-            gen_cls_onehot = torch.zeros([img.shape[0], 2]) 
-            gen_cls_onehot[:, 1] = 1 # if img_dir is Only_broken_img then onehot should be [1, 0]
-            gen_cls_onehot = gen_cls_onehot.to(device)
-            loss, loss_ep, optimizer = gan_model.process(img, gen_cls_onehot, loss_ep, optimizer)
 
-            pbar.set_postfix(**{'batch_loss'    : loss, 
-                                'lr'            : get_lr(optimizer)})
+            '''
+            cls_real_onehot: clean_image [1, 0].
+            cls_fake_onehot: generate broken_image [1, 0].
+            gen_fake_onehot: generate broken_image [0, 1].
+            '''
+            cls_real_onehot, cls_fake_onehot, gen_fake_onehot = torch.zeros([img.shape[0], 2]), torch.zeros([img.shape[0], 2]), torch.zeros([img.shape[0], 2])
+            cls_real_onehot[:, 0], cls_fake_onehot[:, 0], gen_fake_onehot[:, 1] = 1, 1, 1
+            cls_real_onehot, cls_fake_onehot, gen_fake_onehot = cls_real_onehot.to(device), cls_fake_onehot.to(device), gen_fake_onehot.to(device)
+
+            if epoch < 101:
+                train_dis = False
+                train_gen= True
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen)
+            elif 101 <= epoch < 121:
+                train_dis = True
+                train_gen= False
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen)
+            elif 121 <= epoch < 221:
+                train_dis = False
+                train_gen= True
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen, ssim_ratio = 0.5)
+            elif 221 <= epoch < 241:
+                train_dis = True
+                train_gen= False
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen)
+            elif 241 <= epoch < 351:
+                train_dis = False
+                train_gen= True
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen, ssim_ratio = 0.5)
+            elif 351 <= epoch < 371:
+                train_dis = True
+                train_gen= False
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen)
+            elif 371 <= epoch < 481:
+                train_dis = False
+                train_gen= True
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen, ssim_ratio = 0.5)
+            elif 481 <= epoch < 501:
+                train_dis = True
+                train_gen= False
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen)
+            elif 501 <= epoch < 601:
+                train_dis = False
+                train_gen= True
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen, ssim_ratio = 0.5)
+            elif 601 <= epoch < 621:
+                train_dis = True
+                train_gen= False
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen)
+            elif 621 <= epoch < 801:
+                train_dis = False
+                train_gen= True
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen, ssim_ratio = 0.5)
+            elif 801 <= epoch < 821:
+                train_dis = True
+                train_gen= False
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen)
+            elif 821 <= epoch < 1001:
+                train_dis = False
+                train_gen= True
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen, ssim_ratio = 0.5)
+            elif 801 <= epoch < 821:
+                train_dis = True
+                train_gen= False
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen)
+            elif 821 <= epoch < 1001:
+                train_dis = False
+                train_gen= True
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen, ssim_ratio = 0.5)
+            elif 1001 <= epoch < 1021:
+                train_dis = True
+                train_gen= False
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen)
+            elif 1021 <= epoch < 1501:
+                train_dis = False
+                train_gen= True
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen, ssim_ratio = 0.5)
+            elif 1501 <= epoch < 1521:
+                train_dis = True
+                train_gen= False
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen)
+            elif 1521 <= epoch < 2001:
+                train_dis = False
+                train_gen= True
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen, ssim_ratio = 0.5)
+            else:
+                train_dis = True
+                train_gen= True
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, ssim_ratio = 0.1)
+
+            pbar.set_postfix(**{'gen_batch_loss'    : gen_loss.data.cpu().numpy(), 
+                                'gen_lr'            : get_lr(gan_model.gen_optimizer),
+                                'dis_batch_loss'    : dis_loss.data.cpu().numpy(), 
+                                'dis_lr'            : get_lr(gan_model.dis_optimizer)})
             pbar.update(1)
-            if lr_scheduler is not None: lr_scheduler.step()
-            if warmup is not None: warmup.step()
-    loss_ep /= train_iter
+
+            if train_gen and gan_model.gen_lr_scheduler is not None: gan_model.gen_lr_scheduler.step()
+            if train_gen and gan_model.gen_warmup is not None: gan_model.gen_warmup.step()
+            if train_dis and gan_model.dis_lr_scheduler is not None: gan_model.dis_lr_scheduler.step()
+            if train_dis and gan_model.dis_warmup is not None: gan_model.dis_warmup.step()
+
+            del gen_loss, dis_loss
+
+    gen_loss_ep /= train_iter
+    dis_loss_ep /= train_iter
     print('\n---------------start validate---------------')
     val_loss = 0
     gan_model.eval()
@@ -289,7 +383,7 @@ def gen_fit_one_epoch_1(epoch,
                 gen_cls_onehot = torch.zeros([img.shape[0], 2]) 
                 gen_cls_onehot[:, 1] = 1 # if img_dir is Only_broken_img then onehot should be [1, 0]
                 gen_cls_onehot = gen_cls_onehot.to(device)
-                loss, val_loss = gan_model.process(img, gen_cls_onehot, val_loss, train=False)
+                val_loss = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, val_loss, train_gen=False, train_dis=False)
                 pbar.update(1)       
     val_loss /= val_iter
 
@@ -301,15 +395,40 @@ def gen_fit_one_epoch_1(epoch,
         best_val = val_loss
         best_epoch = epoch
 
+    elif val_loss < best_val:
+        torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, f'best.pth'))
+        best_val = val_loss
+        best_epoch = epoch
 
-    elif epoch % save_period == 0 or epoch == epochs:
-        if val_loss < best_val:
-            torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, f'best.pth'))
-            best_val = val_loss
-            best_epoch = epoch
-        torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, f'last.pth'))
+    if epoch == 101:
+        torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, 'ep101.pth'))
+    elif epoch == 121:
+        torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, 'ep121.pth'))
+    elif epoch == 221:
+        torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, 'ep221.pth'))
+    elif epoch == 241:
+        torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, 'ep241.pth'))
+    elif epoch == 351:
+        torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, 'ep351.pth'))
+    elif epoch == 371:
+        torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, 'ep371.pth'))
+    elif epoch == 481:
+        torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, 'ep481.pth'))
+    elif epoch == 501:
+        torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, 'ep501.pth'))
+    elif epoch == 601:
+        torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, 'ep601.pth'))
+    elif epoch == 621:
+        torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, 'ep621.pth'))
+    elif epoch == 721:
+        torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, 'ep721.pth'))
+    elif epoch == 741:
+        torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, 'ep741.pth'))
+
+
+    if epoch % save_period == 0 or epoch == epochs:
+        torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, f'ep{epoch}.pth'))
     
-    print(f'\ntrain_loss:{loss_ep} || val_loss:{val_loss} || best_val_loss:{best_val} || best_epoch:{best_epoch}\n')
-    if epoch == 400:
-        print(f'Epoch {epoch + 1} is coming. The loss will become mix loss (ssim and cls).')
+    print(f'\ntrain_gen_loss:{gen_loss_ep} || train_dis_loss:{dis_loss_ep} || val_loss:{val_loss} || best_val_loss:{best_val} || best_epoch:{best_epoch}\n')
+
     return best_val, best_epoch

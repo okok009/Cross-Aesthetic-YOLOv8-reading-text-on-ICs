@@ -351,7 +351,7 @@ class Def_Bottle_R(nn.Module):
         out = d_out + out
         out = self.relu(out)
 
-        return out 
+        return torch.sigmoid(out)
 
 def sdefnet18(pretrained_own=False):
     '''

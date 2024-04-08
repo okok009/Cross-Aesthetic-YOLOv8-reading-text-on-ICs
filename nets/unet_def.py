@@ -38,7 +38,7 @@ class Unet_model(nn.Module):
         
         outputs = self.up_conv(outputs)
         outputs = self.final(outputs)
-        return outputs
+        return torch.sigmoid(outputs)
     
     def load_state_dict(self, path):
         w = torch.load(path)
@@ -239,7 +239,7 @@ def unt_srdefnet101(num_classes=2, pretrained_own=None):
     
     return model
 
-def unt_rdefnet101(num_classes=2, pretrained_own=None):
+def unt_rdefnet101(num_classes=2, pretrained_own=None, input_size=400, freezing=False):
     '''
     num_classes : colorlabels的種類個數
 
@@ -248,10 +248,14 @@ def unt_rdefnet101(num_classes=2, pretrained_own=None):
     in_channels_list = [192, 512, 1024, 3072]
     
     if pretrained_own:
-        model = Unet_model(rdefnet101(), in_channels_list, num_classes=num_classes)
+        model = Unet_model(rdefnet101(), in_channels_list, num_classes=num_classes, input_size=input_size)
         model.load_state_dict(pretrained_own)
     else:
-        model = Unet_model(rdefnet101(), in_channels_list, num_classes=num_classes)
+        model = Unet_model(rdefnet101(), in_channels_list, num_classes=num_classes, input_size=input_size)
+
+    if freezing:
+        for param in model.backbone.parameters():
+            param.requires_grad = False
     
     return model
 
@@ -287,7 +291,7 @@ def unt_srdefnet152(num_classes=2, pretrained_own=None):
     
     return model
 
-def unt_rdefnet152(num_classes=2, pretrained_own=None):
+def unt_rdefnet152(num_classes=2, pretrained_own=None, input_size=400, freezing=False):
     '''
     num_classes : colorlabels的種類個數
 
@@ -296,10 +300,14 @@ def unt_rdefnet152(num_classes=2, pretrained_own=None):
     in_channels_list = [192, 512, 1024, 3072]
     
     if pretrained_own:
-        model = Unet_model(rdefnet152(), in_channels_list, num_classes=num_classes)
+        model = Unet_model(rdefnet152(), in_channels_list, num_classes=num_classes, input_size=input_size)
         model.load_state_dict(pretrained_own)
     else:
-        model = Unet_model(rdefnet152(), in_channels_list, num_classes=num_classes)
+        model = Unet_model(rdefnet152(), in_channels_list, num_classes=num_classes, input_size=input_size)
+
+    if freezing:
+        for param in model.backbone.parameters():
+            param.requires_grad = False
     
     return model
 

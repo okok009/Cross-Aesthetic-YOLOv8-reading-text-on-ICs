@@ -13,8 +13,8 @@ def sgd(params, lr_rate, momentum, milestones:list = None, step = 0.1, warmup_mi
         return optimizer, warmup
 
     elif warmup_milestones is not None and milestones is not None:
-        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones, 0.1)
-        warmup = torch.optim.lr_scheduler.MultiStepLR(optimizer, warmup_milestones, 2)
+        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones, step)
+        warmup = torch.optim.lr_scheduler.MultiStepLR(optimizer, warmup_milestones, war_step)
         return optimizer, lr_scheduler, warmup
     
     else:
