@@ -13,11 +13,12 @@ class cut_bbx:
         self.data_path = data_path
         self.gen_cls = gen_cls
     
-    def __call__(self,  reverse:bool=False, img_id:str=None, out_size:tuple=(120, 120), img:torch.Tensor=None, bbx=None, bbox=None):
+    def __call__(self,  reverse:bool=False, img_id:str=None, out_size:tuple=(120, 120), img:torch.Tensor=None, bbx=None, bbox=None, img_txt=None):
         '''
         bbx: bounding box image
         bbox: bounding box annotation
         '''
+        bboxs = []
         bbxs = []
         if reverse:
             assert bbox is not None
@@ -33,11 +34,18 @@ class cut_bbx:
                 if img_id == str(self.ann['annotations'][i]['image_id']):
                     broken_bbx = {}
                     if self.gen_cls == 'cls':
-                        if self.ann['annotations'][i]['aesthetic'][2]:
-                            aesthetic_onehot[1] = 1
-                        elif self.ann['annotations'][i]['aesthetic'] == [0, 0, 0]:
-                            aesthetic_onehot[0] = 1
+                        if img_txt[4:-4] == 'clean':
+                            if self.ann['annotations'][i]['aesthetic'] == [0, 0, 0]:
+                                aesthetic_onehot[0] = 1
+                            else:
+                                continue
+                        elif img_txt[4:-4] == 'broken':
+                            if self.ann['annotations'][i]['aesthetic'] == [0, 0, 1]:
+                                aesthetic_onehot[1] = 1
+                            else:
+                                continue
                         else:
+                            print('shit! you got wrong!')
                             continue
                     elif self.gen_cls == 'gen':
                         if self.ann['annotations'][i]['aesthetic'][2] == 0:
@@ -58,32 +66,38 @@ class cut_bbx:
                     broken_bbx['h'], broken_bbx['w'] = coco_bbox[2], coco_bbox[3]
                     broken_bbx['coco_x'], broken_bbx['coco_y'] = coco_bbox[0], coco_bbox[1]
                     broken_bbx['rotation_degree'] = rotation_degree
-                    bbxs.append(broken_bbx)
-                    break
-            for bbox in bbxs:
+                    broken_bbx['center_x'], broken_bbx['center_y'] = center_x, center_y
+                    bboxs.append(broken_bbx)
+
+            item = 0        
+            for bbox in bboxs:
+                item += 1
                 x1, y1, x2, y2 = (bbox['x1'], bbox['y1'], bbox['x2'], bbox['y2'])
                 x3, y3, x4, y4 = (bbox['x3'], bbox['y3'], bbox['x4'], bbox['y4'])
                 pts = np.array([[x1,y1],[x2, y2],[x3, y3],[x4,y4]])
-                img_ = np.copy(img)
+                if item > 1:
+                    # 因為同張照片在經過第一個box的filter後蓋上黑色塊，所以得讓他變回原樣。
+                    img = np.copy(img_)
+                else:
+                    img_ = np.copy(img)
                 cv2.fillPoly(img,[pts], (0, 0, 0))
                 filter = np.zeros_like(img)
                 filter = filter == img
                 filter.dtype = np.int8
                 bbx = img_ * filter
-                if rotation_degree != 0:
-                    M = cv2.getRotationMatrix2D((center_x, center_y), -rotation_degree, 1)
-                    bbx = cv2.warpAffine(bbx, M, (bbx.shape[0]*2, bbx.shape[1]*2))
+                if bbox['rotation_degree'] != 0:
+                    M = cv2.getRotationMatrix2D((bbox['center_x'], bbox['center_y']), -bbox['rotation_degree'], 1)
+                    bbx = cv2.warpAffine(bbx, M, (bbx.shape[0]*5, bbx.shape[1]*5))
                     bbx = bbx[:img_.shape[0], :img_.shape[1]]
                 if bbox['coco_y'] < 0:
                     bbox['coco_y'] = 0
                 if bbox['coco_x'] < 0:
                     bbox['coco_x'] = 0
-                bbx = bbx[broken_bbx['coco_y']:broken_bbx['coco_y']+bbox['w'], broken_bbx['coco_x']:broken_bbx['coco_x']+bbox['h']]
+                bbx = bbx[bbox['coco_y']:bbox['coco_y']+bbox['w'], bbox['coco_x']:bbox['coco_x']+bbox['h']]
                 if bbx.shape[0] == 0 or bbx.shape[1] == 0:
                     print(img_id)
                 bbx = cv2.resize(bbx, out_size)
-
-            return img, bbx, bbox, aesthetic_onehot, cls_onehot
+                cv2.imwrite('D:/Datasets/ICText_cls/'+ img_txt[:3] + '/' + img_txt[4:] + '/' + img_id + f'_{item}' + '.jpg', bbx)
 
 if __name__ == "__main__":
     json_path = 'E:/Datasets/ICText/annotation/GOLD_REF_TRAIN_FINAL.json'

@@ -12,13 +12,13 @@ class GanModel(nn.Module):
         self.gen_optimizer, self.gen_lr_scheduler, self.gen_warmup = None, None, None
         self.dis_optimizer, self.dis_lr_scheduler, self.dis_warmup = None, None, None
     
-    def set_gen_optimizer(self, params, lr_rate, momentum, milestones, step, warmup_milestones, warm_step):
-        self.gen_optimizer, self.gen_lr_scheduler, self.gen_warmup = sgd(params, lr_rate, momentum, milestones, step, warmup_milestones, warm_step)
+    def set_gen_optimizer(self, lr_rate, momentum = None, milestones = None, step = None, warmup_milestones = None, warm_step = None):
+        self.gen_optimizer, self.gen_lr_scheduler, self.gen_warmup = sgd([p for p in self.generator.parameters() if p.requires_grad], lr_rate, momentum, milestones, step, warmup_milestones, warm_step)
 
-    def set_dis_optimizer(self, params, lr_rate, momentum, milestones, step, warmup_milestones, warm_step):
-        self.dis_optimizer, self.dis_lr_scheduler, self.dis_warmup = sgd(params, lr_rate, momentum, milestones, step, warmup_milestones, warm_step)
+    def set_dis_optimizer(self, lr_rate, momentum = None, milestones = None, step = None, warmup_milestones = None, warm_step = None):
+        self.dis_optimizer, self.dis_lr_scheduler, self.dis_warmup = sgd([p for p in self.discriminator.parameters() if p.requires_grad], lr_rate, momentum, milestones, step, warmup_milestones, warm_step)
     
-    def process(self, x, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep=0, train_dis = True, train_gen = True, ssim_ratio = 1):
+    def process(self, x, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep=0, train_dis = False, train_gen = False, ssim_ratio = 1):
         '''
         discriminator train:
             1. dis_real_loss: input x is a clean image
@@ -52,7 +52,7 @@ class GanModel(nn.Module):
             return gen_loss, gen_loss_ep, dis_loss, dis_loss_ep
 
         else:
-            val_loss = gen_loss_ep + dis_loss_ep
+            val_loss = gen_loss_ep
             return val_loss
 
     def forward(self, x):

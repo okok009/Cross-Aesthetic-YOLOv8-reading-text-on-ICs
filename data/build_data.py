@@ -175,11 +175,12 @@ def ictext2doa(json_path, data_path, img_name=None):
             # cv2.waitKey(0)
                 
 def ictext2cls(img_txt, json_path, data_path, img_name=None):
-    with open('E:/ray_workspace/CrossAestheticYOLOv8/data/' + img_txt + '.txt') as f:
-        img_ids = f.readlines()
+    # with open('E:/ray_workspace/CrossAestheticYOLOv8/data/' + img_txt + '.txt') as f:
+    #     img_ids = f.readlines()
+    img_ids = os.listdir(data_path)
     cut = cut_bbx(data_path, json_path, 'cls')
-    for idx in range(len(img_ids)):
-        cut(img_id = img_ids[idx][:-1], img_txt=img_txt)
+    for img_id in img_ids:
+        cut(img_id = img_id[:-4], img_txt=img_txt)
 
 if __name__ == '__main__':
 
@@ -188,9 +189,9 @@ if __name__ == '__main__':
     # ann_path = 'E:/Datasets/ExDark/ExDark_Annno/'
     # ann_txt(img_path, ann_path, imgs)
 
-    img_txt = 'val_clean_img'
-    json_path = 'D:/Datasets/ICText/annotation/GOLD_REF_VAL_FINAL.json'
-    data_path = 'D:/Datasets/ICText/val2021/'
+    img_txt = 'tra_clean_img'
+    json_path = 'D:/Datasets/ICText/annotation/GOLD_REF_TRAIN_FINAL.json'
+    data_path = 'D:/Datasets/ICText/train2021/'
     classes_id = 'D:/Datasets/ICText/annotation/classes.txt'
     rotate_img = False
     rotate_bbx = True
