@@ -23,7 +23,7 @@ After training, I founded a problem that no matter which input image is the brok
 
 ![image](https://github.com/okok009/Cross-Aesthetic-YOLOv8-reading-text-on-ICs/blob/master/assets/Using%20simple%20GAN%20model.png)
 
-## Result with a simple GAN model
+## Result with a complex GAN model
 So I change the generate model to unt_defnet152. Then the broken style of output will be different with different input image.
 
 ![image](https://github.com/okok009/Cross-Aesthetic-YOLOv8-reading-text-on-ICs/blob/master/assets/Using%20complex%20GAN%20model.png)
