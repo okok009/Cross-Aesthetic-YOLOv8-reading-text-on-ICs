@@ -132,3 +132,87 @@ def ahash(output, target, kernel_size=11, sigma=1.5):
     ahash = ahash.to(dtype=torch.float)
     ahash = ahash.sum() / (gauss_target.shape[-1] * gauss_target.shape[-2])
     return(ahash)
+
+def isw(self, ori_output, trans_output, sigma=0.8):
+    '''
+    Instance Selective Whitening(ISW)
+
+    trans_output.shape = [B, C, H, W] => [B, C, HW]
+    ori_output.shape = [B, C, H, W] => [B, C, HW]
+    trans_cov[B, C, C]:  Transform feature's Covariance Matrix
+    ori_cov[B, C, C]:    Original feature's Covariance Matrix
+    variance[1, C, C]:      Variance matrix of trans_cov and ori_cov after instance whitening
+    isw[B, C, C]
+    '''
+    trans_output = trans_output.reshape([trans_output.shape[0], trans_output.shape[1], -1])
+    ori_output = ori_output.reshape([ori_output.shape[0], ori_output.shape[1], -1])
+    trans_cov = self.cov_matrix(trans_output)
+    ori_cov = self.cov_matrix(ori_output)
+    trans_output = self.iw(trans_output, trans_cov)
+    ori_output = self.iw(ori_output, ori_cov)
+    trans_cov = self.cov_matrix(trans_output)
+    ori_cov = self.cov_matrix(ori_output)
+    variance = self.var_matrix(trans_cov, ori_cov)
+    mask = variance > (variance.mean()*sigma)
+    num = mask.sum()
+    isw = ori_cov * mask
+    isw = torch.norm(isw, p=1) / num
+    return isw
+
+def cov_matrix(self, feature):
+    '''
+    Covariance Matrix
+    cov_matrix: convariance matrix
+    mean: mean of each channel
+
+    feature.shape = [B, C, HW]
+    cov_matrix.shape = [B, C, C]
+    '''
+    mean = torch.mean(feature, -1, True)
+    feature = feature - mean.expand(-1, -1, feature.shape[-1])
+    cov_matrix = torch.matmul(feature, torch.transpose(feature, -2, -1)) / feature.shape[-1]
+    return cov_matrix
+
+def iw(self, feature, cov_matrix):
+    '''
+    IW(Instance Whitening):
+    A feature after IW transform, that will have zero mean and that's diag(covariance matrix) will be 1.
+    (This idea is from Whitening Transform which's output have a identity matrix.)
+
+    feature.shape = [B, C, HW]
+    cov_matrix.shape = [B, C, C]
+    iw_feature.shape = [B, C, HW]
+
+    tips:
+        We don't need to worry what if batch size is odd, cause torch.diagonal can handle this issue.
+    '''
+    dia_cov = None
+    for i in range(0, cov_matrix.shape[0], 2):
+        if dia_cov is not None:
+            dia = torch.diagonal(cov_matrix[i:i+2], dim1=1, dim2=2).unsqueeze(-1)
+            dia_cov = torch.cat((dia_cov, dia))
+        else:
+            dia_cov = torch.diagonal(cov_matrix[i:i+2], dim1=1, dim2=2).unsqueeze(-1)
+    dia_cov = torch.sqrt(dia_cov)
+    mean = torch.mean(feature, -1, True)
+    feature = feature - mean.expand(-1, -1, feature.shape[-1])
+    iw_feature = dia_cov.expand(-1, -1, feature.shape[-1]) * feature
+    return iw_feature
+
+
+def var_matrix(self, cov_1, cov_2):
+    '''
+    Variance Matrix
+    This variance is to think all stochastic variable is a pixel, then do something like covariance matrix.
+    That why the term cov_1*cov_1 and cov_2*cov_2 is element-wise multiplier.
+    And variance need to calculate a mean of all sample in one batch.
+
+    cov_1.shape, cov_2.shape = [B, C, C]
+    variance.shape = [B, C, C] => [1, C, C]
+    '''
+    mean = (cov_1 + cov_2) / 2
+    cov_1 = cov_1 - mean
+    cov_2 = cov_2 - mean
+    variance = (cov_1 * cov_1 + cov_2 * cov_2) / 2
+    variance = torch.mean(variance, 0, True)
+    return variance
