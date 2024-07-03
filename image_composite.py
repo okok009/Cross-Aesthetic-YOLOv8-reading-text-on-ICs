@@ -9,6 +9,10 @@ from data.cut_bbx import cut_bbx
 from torchvision.io import read_image
 from torchvision.transforms import v2
 
+'''
+將圖片中所有的bouding box都做生成
+'''
+
 def pad_resize(image):
     if image.shape[-1] != image.shape[-2]:
         pad_size = abs(image.shape[-1]-image.shape[-2])
@@ -23,16 +27,22 @@ def pad_resize(image):
     image[:, :, ::1] = image[:, :, ::-1]
     return image
 
-def dataload(cut, image_id, device, box_path):
+def dataload(cut, image_id, names, device, box_path):
     box, box_annotation = cut(img_id = image_id)
-    box = read_image(box_path + "/" + image_id + '_1.jpg')
-    box = box.unsqueeze(0)
-    box = box / 255
-    box = box.to(device)
-    return box, box_annotation
+    boxs = None
+    for name in names:
+        box = read_image(box_path + "/" + name)
+        box = box.unsqueeze(0)
+        box = box / 255
+        box = box.to(device)
+        if boxs is None:
+            boxs = box
+        else:
+            boxs = torch.cat((boxs, box), 0)
+    return boxs, box_annotation
 
-def composite(cut, image_id, new_box, box_annotation):
-    new_image = cut(reverse = True, img_id = image_id, bbx = new_box, bbox = box_annotation)
+def composite(cut, image_id, new_box, box_annotation, img):
+    new_image = cut(reverse = True, img_id = image_id, bbx = new_box, bbox = box_annotation, img=img)
 
     return new_image
 
@@ -45,10 +55,11 @@ if __name__ == '__main__':
     '''
     data
     '''
-    json_path = 'D:/Datasets/ICText/annotation/GOLD_REF_TRAIN_FINAL.json'
-    data_path = 'D:/Datasets/ICText/train2021/'
-    box_path = 'D:/Datasets/ICText_cls/train/Not_broken_img'
-    new_data_path = 'D:/Datasets/ICText_pair/images/train/'
+    json_path = 'D:/Datasets/ICText/annotation/GOLD_REF_VAL_FINAL.json'
+    data_path = 'D:/Datasets/ICText/val2021/'
+    box_path = 'D:/Datasets/ICText_cls/test/Not_broken_img'
+    new_data_path = 'D:/Datasets/ICText_pair/images/'
+    train_val = 'val'
     image_ids = os.listdir(box_path)
     image_ids_ = []
 
@@ -74,7 +85,6 @@ if __name__ == '__main__':
     cut
     '''
     cut = cut_bbx(data_path, json_path, 'gen')
-
     for image_id in image_ids:
         if image_id[-7] == '_':
             image_id = image_id[:-7]
@@ -84,21 +94,30 @@ if __name__ == '__main__':
             image_id = image_id[:-6]
 
         if image_id not in image_ids_:
-            box, box_annotation = dataload(cut, image_id, device, box_path)
+            names = []
+            for name in image_ids:
+                if image_id == name[:len(image_id)] and name[len(image_id):len(image_id)+1] == '_':
+                    names.append(name)
+            box, box_annotation = dataload(cut, image_id, names, device, box_path)
             new_box = model(box)
-            new_box = new_box[0].permute((1, 2, 0))
-            new_box = new_box.data.cpu().numpy()
-            new_box[:, :, ::1] = new_box[:, :, ::-1]
-            new_image = composite(cut, image_id, new_box, box_annotation)
-            cv2.imwrite(new_data_path+f'new_{image_id}.jpg', new_image)
+
+            img = cv2.imread(data_path + image_id + '.jpg')
+            for i in range(len(names)):
+                new_box_np = new_box[i].permute((1, 2, 0))
+                new_box_np = new_box_np.data.cpu().numpy()
+                new_box_np[:, :, ::1] = new_box_np[:, :, ::-1]
+                new_image = composite(cut, image_id, new_box_np, box_annotation[i], img)
+                img = new_image
+
+            cv2.imwrite(new_data_path+train_val+'_new/'+f'{image_id}_new.jpg', new_image)
             image_ids_.append(image_id)
 
             image = read_image(data_path + image_id + '.jpg')
             
-            new_image = read_image(new_data_path+f'new_{image_id}.jpg')
+            new_image = read_image(new_data_path+train_val+'_new/'+f'{image_id}_new.jpg')
             
             image = pad_resize(image)
             new_image = pad_resize(new_image)
             
-            cv2.imwrite(new_data_path+f'{image_id}.jpg', image)
-            cv2.imwrite(new_data_path+f'new_{image_id}.jpg', new_image)
+            cv2.imwrite(new_data_path+train_val+'/'+f'{image_id}.jpg', image)
+            cv2.imwrite(new_data_path+train_val+'_new/'+f'{image_id}_new.jpg', new_image)

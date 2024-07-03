@@ -7,6 +7,7 @@ import numpy as np
 import datetime
 from nets.classify import vgg
 from nets.unet_def import unt_rdefnet18, unt_rdefnet152, unt_rdefnet101
+from nets.spnet import SPNet
 from nets.gan import GanModel
 from tqdm import tqdm
 from utils.callbacks import LossHistory
@@ -27,13 +28,23 @@ else:
 
 if __name__=='__main__':
     # -----------------------------------
+    # list of which epoch should change training model (gen or dis)
+    # train gen when epoch < change_list[0], train dis when change_list[0] < epoch < change_list[1], and so on.
+    # -----------------------------------
+    change_list = [50, 60, 110, 120, 170, 195]
+
+    # -----------------------------------
     # model
     # -----------------------------------
     n_classes = 2
 
-    gen_model_name = 'unt_rdefnet152'
-    gen_weight = None
-    gen_model = unt_rdefnet152(3, gen_weight, input_size=120)
+    # gen_model_name = 'unt_rdefnet152'
+    # gen_weight = None
+    # gen_model = unt_rdefnet152(3, gen_weight, input_size=120)
+    # gen_model = gen_model.to(device=device)
+    gen_model_name = 'spnet'
+    seg_model = 'unt_rdefnet152'
+    gen_model = SPNet(3, seg_model, input_size=120)
     gen_model = gen_model.to(device=device)
 
     dis_model_name = 'vgg19'
@@ -44,11 +55,10 @@ if __name__=='__main__':
     dis_model = dis_model.to(device=device)
 
     gan_model_name = 'GanModel'
-    # weight = f'checkpoints/{gen_model_name}/without_training_dis/best.pth'
-    # weight = torch.load(weight)
-    gan_model_name = 'GanModel'
+    weight = f'checkpoints/{gan_model_name}/{gen_model_name}/using_mse/last.pth'
+    weight = torch.load(weight)
     model = GanModel(gen_model, dis_model)
-    # model.load_state_dict(weight)
+    model.load_state_dict(weight)
     # for param in dis_model.parameters():
     #     param.requires_grad = False
 
@@ -56,9 +66,9 @@ if __name__=='__main__':
     # -----------------------------------
     # optimizer
     # -----------------------------------
-    lr_rate = 0.0001
-    milestones = [160000, 200000, 240000]
-    warmup_milestones = [3000, 6000, 9000]
+    lr_rate = 0.001
+    milestones = [45000, 90000, 120000]
+    warmup_milestones = [2000, 4000, 6000]
     momentum = 0.2
     step = 0.1
     warm_step = 4
@@ -76,9 +86,9 @@ if __name__=='__main__':
     # data_loader
     # -----------------------------------
     img_dir = 'D:/Datasets/ICText_cls/train/Not_broken_img/'
-    batch_size = 20
+    batch_size = 40
     shuffle = True
-    epochs = 2000
+    epochs = 200
     transform = v2.Compose([
         v2.ToDtype(torch.float32)]
     )
@@ -119,7 +129,8 @@ if __name__=='__main__':
                                         best_epoch=best_epoch,
                                         best_val=best_val,
                                         gen_loss_ep=gen_loss_ep,
-                                        dis_loss_ep=dis_loss_ep)
+                                        dis_loss_ep=dis_loss_ep,
+                                        change_list=change_list)
 # for epoch in range(1, epochs+1):
 #         best_ssim, best_epoch = gen_fit_one_epoch(epoch,
 #                                         epochs,

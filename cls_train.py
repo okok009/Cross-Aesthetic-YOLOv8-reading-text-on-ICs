@@ -27,7 +27,7 @@ if __name__=='__main__':
     # model
     # -----------------------------------
     n_classes = 2
-    model_name = 'vgg16'
+    model_name = 'vgg19'
     model = vgg(model_name, n_classes)
     model = model.to(device=device)
 
@@ -46,9 +46,9 @@ if __name__=='__main__':
     # data_loader
     # -----------------------------------
     cls_dir = 'D:/Datasets/ICText_cls/train/'
-    batch_size = 20
+    batch_size = 100
     shuffle = True
-    epochs = 400
+    epochs = 100
     transform = v2.Compose([
         v2.ToDtype(torch.float32)]
     )

@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from utils.score import ssim, cls_loss_bce, l1_loss
+from utils.score import ssim, cls_loss_bce, l1_loss, mse
 from utils.optimizer import adam, sgd
 
 
@@ -36,6 +36,8 @@ class GanModel(nn.Module):
         gen_gan_loss = l1_loss(gen_fake_output, gen_fake_onehot)
         ssim_loss = 1 - ssim(output, x)
         gen_loss = gen_gan_loss + ssim_ratio * ssim_loss
+        # mse_loss = mse(output, x) # aaaa
+        # gen_loss = gen_gan_loss + mse_loss # aaaa
         gen_loss_ep = gen_loss_ep + float(gen_loss.detach().data.cpu().numpy())
 
         if train_dis:
