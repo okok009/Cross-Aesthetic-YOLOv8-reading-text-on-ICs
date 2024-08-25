@@ -13,7 +13,7 @@ I only use unt_rdefnet18, that why the def has some differences.
 '''
 
 class Unet_model(nn.Module):
-    def __init__(self, backbone, in_channels_list, num_classes=2, out_channels_list=[64, 128, 256, 512], input_size=400):
+    def __init__(self, backbone, in_channels_list, num_classes=2, out_channels_list=[64, 128, 256, 512], input_size=400, b_out=False):
         super().__init__()
         self.final = nn.Conv2d(64, num_classes, 1)
         self.up_conv = nn.Sequential(
@@ -28,6 +28,7 @@ class Unet_model(nn.Module):
         self.up_concat3 = Unet_Up(in_channels_list[2], out_channels_list[2], round(input_size / 2 ** 3))
         self.up_concat4 = Unet_Up(in_channels_list[3], out_channels_list[3], round(input_size / 2 ** 4))
         self.backbone = backbone
+        self.b_out = b_out
 
     def forward(self, inputs):
         [feat1, feat2, feat3, feat4, feat5] = self.backbone(inputs)
@@ -38,7 +39,10 @@ class Unet_model(nn.Module):
         
         outputs = self.up_conv(outputs)
         outputs = self.final(outputs)
-        return torch.sigmoid(outputs)
+        if self.b_out:
+            return feat1, torch.sigmoid(outputs)
+        else:
+            return torch.sigmoid(outputs)
     
     def load_state_dict(self, path):
         w = torch.load(path)
@@ -91,7 +95,7 @@ def unt_srdefnet18(num_classes=2, pretrained_own=None):
     
     return model
 
-def unt_rdefnet18(num_classes=2, pretrained_own=None, input_size=400, freezing=False):
+def unt_rdefnet18(num_classes=2, pretrained_own=None, input_size=400, freezing=False, b_out=False):
     '''
     num_classes : colorlabels的種類個數
 
@@ -100,10 +104,10 @@ def unt_rdefnet18(num_classes=2, pretrained_own=None, input_size=400, freezing=F
     in_channels_list = [192, 320, 640, 768]
     
     if pretrained_own:
-        model = Unet_model(rdefnet18(), in_channels_list, num_classes=num_classes, input_size=input_size)
+        model = Unet_model(rdefnet18(), in_channels_list, num_classes=num_classes, input_size=input_size, b_out=b_out)
         model.load_state_dict(pretrained_own)
     else:
-        model = Unet_model(rdefnet18(), in_channels_list, num_classes=num_classes, input_size=input_size)
+        model = Unet_model(rdefnet18(), in_channels_list, num_classes=num_classes, input_size=input_size, b_out=b_out)
     
     if freezing:
         for param in model.backbone.parameters():
@@ -239,7 +243,7 @@ def unt_srdefnet101(num_classes=2, pretrained_own=None):
     
     return model
 
-def unt_rdefnet101(num_classes=2, pretrained_own=None, input_size=400, freezing=False):
+def unt_rdefnet101(num_classes=2, pretrained_own=None, input_size=400, freezing=False, b_out=False):
     '''
     num_classes : colorlabels的種類個數
 
@@ -248,10 +252,10 @@ def unt_rdefnet101(num_classes=2, pretrained_own=None, input_size=400, freezing=
     in_channels_list = [192, 512, 1024, 3072]
     
     if pretrained_own:
-        model = Unet_model(rdefnet101(), in_channels_list, num_classes=num_classes, input_size=input_size)
+        model = Unet_model(rdefnet101(), in_channels_list, num_classes=num_classes, input_size=input_size, b_out=b_out)
         model.load_state_dict(pretrained_own)
     else:
-        model = Unet_model(rdefnet101(), in_channels_list, num_classes=num_classes, input_size=input_size)
+        model = Unet_model(rdefnet101(), in_channels_list, num_classes=num_classes, input_size=input_size, b_out=b_out)
 
     if freezing:
         for param in model.backbone.parameters():
@@ -291,7 +295,7 @@ def unt_srdefnet152(num_classes=2, pretrained_own=None):
     
     return model
 
-def unt_rdefnet152(num_classes=2, pretrained_own=None, input_size=400, freezing=False):
+def unt_rdefnet152(num_classes=2, pretrained_own=None, input_size=400, freezing=False, b_out=False):
     '''
     num_classes : colorlabels的種類個數
 
@@ -300,10 +304,10 @@ def unt_rdefnet152(num_classes=2, pretrained_own=None, input_size=400, freezing=
     in_channels_list = [192, 512, 1024, 3072]
     
     if pretrained_own:
-        model = Unet_model(rdefnet152(), in_channels_list, num_classes=num_classes, input_size=input_size)
+        model = Unet_model(rdefnet152(), in_channels_list, num_classes=num_classes, input_size=input_size, b_out=b_out)
         model.load_state_dict(pretrained_own)
     else:
-        model = Unet_model(rdefnet152(), in_channels_list, num_classes=num_classes, input_size=input_size)
+        model = Unet_model(rdefnet152(), in_channels_list, num_classes=num_classes, input_size=input_size, b_out=b_out)
 
     if freezing:
         for param in model.backbone.parameters():

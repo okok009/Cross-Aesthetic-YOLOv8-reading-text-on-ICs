@@ -155,7 +155,6 @@ def isw(ori_output, trans_output, sigma=0.8):
     variance = var_matrix(trans_cov, ori_cov)
     mask = variance > (variance.mean()*sigma)
     num = mask.sum()
-    print('num: ', num)
     isw = ori_cov * mask
     isw = torch.norm(isw, p=1) / num
     return isw
@@ -222,4 +221,10 @@ def mse(output, target):
     loss = nn.MSELoss()
     mse = loss(output, target)
 
-    return(mse)
+    return mse
+
+def mae(output, target):
+    loss = nn.L1Loss()
+    mae = loss(output, target)
+
+    return mae

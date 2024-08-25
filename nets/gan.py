@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from utils.score import ssim, cls_loss_bce, l1_loss, mse
+from utils.score import ssim, cls_loss_bce, l1_loss, mse, mae
 from utils.optimizer import adam, sgd
 
 
@@ -33,11 +33,12 @@ class GanModel(nn.Module):
         dis_loss_ep = dis_loss_ep + float(dis_loss.detach().data.cpu().numpy())
 
         gen_fake_output = self.discriminator(output)
-        gen_gan_loss = l1_loss(gen_fake_output, gen_fake_onehot)
+        # gen_gan_loss = l1_loss(gen_fake_output, gen_fake_onehot)
         ssim_loss = 1 - ssim(output, x)
-        gen_loss = gen_gan_loss + ssim_ratio * ssim_loss
-        # mse_loss = mse(output, x) # aaaa
-        # gen_loss = gen_gan_loss + mse_loss # aaaa
+        # gen_loss = gen_gan_loss + ssim_ratio * ssim_loss
+        mae_loss = mae(output, x) # aaaa
+        gen_loss = mae_loss
+        # gen_loss = mae_loss + ssim_ratio * ssim_loss # aaaa
         gen_loss_ep = gen_loss_ep + float(gen_loss.detach().data.cpu().numpy())
 
         if train_dis:
@@ -57,10 +58,52 @@ class GanModel(nn.Module):
             val_loss = gen_loss_ep
             return val_loss
 
-    def forward(self, x):
-        output = self.generator(x)
-        return output
+    def forward(self, x, pred=False):
+        '''
+        SPNet:
+        b: binarize result
+        c: color result
+        c_1: color 1
+        c_2: color 2
+        --------------------
+        unt
+        '''
+        b, c = self.generator(x)
+        if not pred:
+            if c.shape[-1] == 2:
+                c_1 = b[:, 0].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 0, 0].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                c_2 = b[:, 1].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 0, 1].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                c_3 = b[:, 2].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 1, 0].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                c_4 = b[:, 3].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 1, 1].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                result = c_1 + c_2 + c_3 + c_4
+                return result
+            elif c.shape[-1] == 4:
+                c_1 = b[:, 0].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 0, 0].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                c_2 = b[:, 1].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 0, 1].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                c_3 = b[:, 2].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 0, 2].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                c_4 = b[:, 3].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 0, 3].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                c_5 = b[:, 4].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 1, 0].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                c_6 = b[:, 5].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 1, 1].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                c_7 = b[:, 6].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 1, 2].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                c_8 = b[:, 7].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 1, 3].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                c_9 = b[:, 8].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 2, 0].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                c_10 = b[:, 9].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 2, 1].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                c_11 = b[:, 10].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 2, 2].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                c_12 = b[:, 11].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 2, 3].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                c_13 = b[:, 12].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 3, 0].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                c_14 = b[:, 13].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 3, 1].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                c_15 = b[:, 14].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 3, 2].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                c_16 = b[:, 15].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 3, 3].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
+                result = c_1 + c_2 + c_3 + c_4 + c_5 + c_6 + c_7 + c_8 + c_9 + c_10 + c_11 + c_12 + c_13 + c_14 + c_15 + c_16
+                return result
+        else:
+            return b, c
+        
+        # output = self.generator(x)
+        # return output
+
     
     def dis_forward(self, x):
         output = self.discriminator(x)
+        
         return output

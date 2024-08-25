@@ -46,7 +46,8 @@ class ClsDataset(Dataset):
     def __getitem__(self, idx):
         cls_onehot = torch.zeros([self.num_classes])
         cls_onehot[self.cls_ids[idx]] = 1.
-        image = read_image(self.img_path + "/" + self.img_ids[idx])
+        image = read_image(self.img_path + "/" + self.img_ids[idx]) 
+        image = image / 255
         
         if self.transform:
             image = self.transform(image)

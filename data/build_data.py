@@ -188,10 +188,12 @@ if __name__ == '__main__':
     # img_path = 'E:/Datasets/ExDark/img/'
     # ann_path = 'E:/Datasets/ExDark/ExDark_Annno/'
     # ann_txt(img_path, ann_path, imgs)
-
-    img_txt = 'tra_clean_img'
-    json_path = 'D:/Datasets/ICText/annotation/GOLD_REF_TRAIN_FINAL.json'
-    data_path = 'D:/Datasets/ICText/train2021/'
+    '''
+    img_txt: 格式為xxx_oo..._img, 其中xxx可以是tra或val表示是訓練集或測試集, oo...則可以是clean, broken, only_broken, not_broken, not_only_broken以上四種, 以便區分現在要建立何種資料.
+    '''
+    img_txt = 'val_not_only_broken_img' # 必須要是tra_開頭表示train，不是打錯!!!
+    json_path = 'D:/Datasets/ICText/annotation/GOLD_REF_VAL_FINAL.json'
+    data_path = 'D:/Datasets/ICText/val2021/'
     classes_id = 'D:/Datasets/ICText/annotation/classes.txt'
     rotate_img = False
     rotate_bbx = True

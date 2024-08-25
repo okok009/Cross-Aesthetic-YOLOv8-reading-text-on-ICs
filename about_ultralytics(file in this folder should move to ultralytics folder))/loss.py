@@ -855,17 +855,17 @@ class v8OBB_ISWLoss(v8DetectionLoss):
         for i in range(backbone_output.shape[0]):
             if trans_img is not None:
                 if 'train' == batch['im_file'][i][31:36]:
-                    x = read_image(batch['im_file'][i][:36]+'_new'+batch['im_file'][i][36:-4]+'_new.jpg')/255
+                    x = read_image(batch['im_file'][i][:36]+'_new_D3'+batch['im_file'][i][36:-4]+'_new.jpg')/255
                 elif 'val' == batch['im_file'][i][31:34]:
-                    x = read_image(batch['im_file'][i][:34]+'_new'+batch['im_file'][i][34:-4]+'_new.jpg')/255
+                    x = read_image(batch['im_file'][i][:34]+'_new_D3'+batch['im_file'][i][34:-4]+'_new.jpg')/255
                     x = x.to(torch.half)
                 x = x.unsqueeze(0)
                 trans_img = torch.cat((trans_img, x), dim=0)
             else:
                 if 'train' == batch['im_file'][i][31:36]:
-                    trans_img = read_image(batch['im_file'][i][:36]+'_new'+batch['im_file'][i][36:-4]+'_new.jpg')/255
+                    trans_img = read_image(batch['im_file'][i][:36]+'_new_D3'+batch['im_file'][i][36:-4]+'_new.jpg')/255
                 elif 'val' == batch['im_file'][i][31:34]:
-                    trans_img = read_image(batch['im_file'][i][:34]+'_new'+batch['im_file'][i][34:-4]+'_new.jpg')/255
+                    trans_img = read_image(batch['im_file'][i][:34]+'_new_D3'+batch['im_file'][i][34:-4]+'_new.jpg')/255
                     trans_img = trans_img.to(torch.half)
                 trans_img = trans_img.unsqueeze(0)
         trans_img = trans_img.to(self.device)
@@ -1075,17 +1075,17 @@ class v8OBB_CRLoss(v8DetectionLoss):
         for i in range(backbone_output.shape[0]):
             if trans_img is not None:
                 if 'train' == batch['im_file'][i][31:36]:
-                    x = read_image(batch['im_file'][i][:36]+'_new'+batch['im_file'][i][36:-4]+'_new.jpg')/255
+                    x = read_image(batch['im_file'][i][:36]+'_new_D3'+batch['im_file'][i][36:-4]+'_new.jpg')/255
                 elif 'val' == batch['im_file'][i][31:34]:
-                    x = read_image(batch['im_file'][i][:34]+'_new'+batch['im_file'][i][34:-4]+'_new.jpg')/255
+                    x = read_image(batch['im_file'][i][:34]+'_new_D3'+batch['im_file'][i][34:-4]+'_new.jpg')/255
                     x = x.to(torch.half)
                 x = x.unsqueeze(0)
                 trans_img = torch.cat((trans_img, x), dim=0)
             else:
                 if 'train' == batch['im_file'][i][31:36]:
-                    trans_img = read_image(batch['im_file'][i][:36]+'_new'+batch['im_file'][i][36:-4]+'_new.jpg')/255
+                    trans_img = read_image(batch['im_file'][i][:36]+'_new_D3'+batch['im_file'][i][36:-4]+'_new.jpg')/255
                 elif 'val' == batch['im_file'][i][31:34]:
-                    trans_img = read_image(batch['im_file'][i][:34]+'_new'+batch['im_file'][i][34:-4]+'_new.jpg')/255
+                    trans_img = read_image(batch['im_file'][i][:34]+'_new_D3'+batch['im_file'][i][34:-4]+'_new.jpg')/255
                     trans_img = trans_img.to(torch.half)
                 trans_img = trans_img.unsqueeze(0)
         trans_img = trans_img.to(self.device)
@@ -1183,12 +1183,18 @@ class v8OBB_CRLoss(v8DetectionLoss):
         trans_cov.shape = [B, C, C]
         cross.shape = [B, C, C]
         '''
-        ori_output = ori_output.reshape([ori_output.shape[0], ori_output.shape[1], -1])
         trans_output = trans_output.reshape([trans_output.shape[0], trans_output.shape[1], -1])
+        ori_output = ori_output.reshape([ori_output.shape[0], ori_output.shape[1], -1])
+        HW = ori_output.shape[-1]
         ori_cov = self.cov_matrix(ori_output)
         trans_cov = self.cov_matrix(trans_output)
-        extractor = self.extractor(ori_cov, trans_cov)
+        extractor = self.extractor(ori_cov, trans_cov, HW)
         cross = self.cross_cos(ori_output, trans_output, extractor)
+        eye = torch.eye(cross.shape[-1], device=self.device).unsqueeze(0)
+        eyes = torch.eye(cross.shape[-1], device=self.device).unsqueeze(0)
+        for i in range(ori_output.shape[0]-1):
+            eyes = torch.cat((eyes, eye), 0)
+        cross = cross - eyes
         sign = torch.sign(cross)
         cross = cross * sign
         return cross.mean()
@@ -1204,17 +1210,16 @@ class v8OBB_CRLoss(v8DetectionLoss):
         ori_cov.shape = trans_cov.shape = [B, C, C]
         cross_cos.shape = [B, C, C]
         '''
-        HW = ori_output.shape[-1]
         mean = torch.mean(ori_output, -1, True)
-        ori_output = ori_output - mean.expand(-1, -1, HW)
+        ori_output = ori_output - mean.expand(-1, -1, ori_output.shape[-1])
         mean = torch.mean(trans_output, -1, True)
-        trans_output = trans_output - mean.expand(-1, -1, HW)
+        trans_output = trans_output - mean.expand(-1, -1, trans_output.shape[-1])
 
-        cross_cos = torch.matmul(ori_output, torch.transpose(trans_output, -2, -1)) / HW
+        cross_cos = torch.matmul(ori_output, torch.transpose(trans_output, -2, -1)) / ori_output.shape[-1]
         cross_cos = cross_cos / extractor
         return cross_cos
 
-    def extractor(self, ori_cov, trans_cov):
+    def extractor(self, ori_cov, trans_cov, HW):
         '''
         Cause torch.matmul can not do batch vector product, 
         so we need to expand two diagonal vector from two matix first.
@@ -1229,7 +1234,7 @@ class v8OBB_CRLoss(v8DetectionLoss):
         trans_cov = torch.diagonal(trans_cov, dim1=1, dim2=2).unsqueeze(-1)
         ori_cov = ori_cov.expand(-1, -1, C)
         trans_cov = torch.transpose(trans_cov, 1, 2).expand(-1, C, -1)
-        extractor = torch.matmul(ori_cov, trans_cov) / C
+        extractor = torch.matmul(ori_cov, trans_cov) / HW
         extractor = torch.sqrt(extractor)
         return extractor
         
@@ -1266,14 +1271,13 @@ class v8OBB_CRLoss(v8DetectionLoss):
         return torch.cat((dist2rbox(pred_dist, pred_angle, anchor_points), pred_angle), dim=-1)
 
 class v8OBB_IDPLoss(v8DetectionLoss):
-    def __init__(self, model, sigma):
+    def __init__(self, model):
         super().__init__(model)
         self.assigner = RotatedTaskAlignedAssigner(topk=10, num_classes=self.nc, alpha=0.5, beta=6.0)
         self.bbox_loss = RotatedBboxLoss(self.reg_max - 1, use_dfl=self.use_dfl).to(self.device)
         self.model = model
         device = next(model.parameters()).device
         self.device = device
-        self.sigma = sigma
     def preprocess(self, targets, batch_size, scale_tensor):
         """Preprocesses the target counts and matches with the input batch size to output a tensor."""
         if targets.shape[0] == 0:
@@ -1295,7 +1299,7 @@ class v8OBB_IDPLoss(v8DetectionLoss):
     def __call__(self, preds, batch, backbone_output):
         '''IDP'''
 
-        idp_loss = self.idp(backbone_output, self.sigma)
+        idp_loss = self.idp(backbone_output)
 
         """Calculate and return the loss for the YOLO model."""
         loss = torch.zeros(3, device=self.device)  # box, cls, dfl
@@ -1372,7 +1376,7 @@ class v8OBB_IDPLoss(v8DetectionLoss):
 
         return loss.sum() * batch_size, loss.detach()  # loss(box, cls, dfl)
 
-    def idp(self, output, sigma=0.8):
+    def idp(self, output):
         '''
         Instance Selective Whitening(ISW)
 
@@ -1383,11 +1387,523 @@ class v8OBB_IDPLoss(v8DetectionLoss):
         cov = self.cov_matrix(output)
         output = self.iw(output, cov)
         cov = self.cov_matrix(output)
-        eye = torch.eye(cov.shape[-1]).unsqueeze(0)
-        eyes = torch.eye(cov.shape[-1]).unsqueeze(0)
+        eye = torch.eye(cov.shape[-1], device=self.device).unsqueeze(0)
+        eyes = torch.eye(cov.shape[-1], device=self.device).unsqueeze(0)
         for i in range(output.shape[0]-1):
             eyes = torch.cat((eyes, eye), 0)
-        idp = (cov - eyes)
+        idp = cov - eyes
+        sign = torch.sign(idp)
+        idp = idp * sign
+        return idp.mean()
+
+    def cov_matrix(self, feature):
+        '''
+        Covariance Matrix
+        cov_matrix: convariance matrix
+        mean: mean of each channel
+
+        feature.shape = [B, C, HW]
+        cov_matrix.shape = [B, C, C]
+        '''
+        mean = torch.mean(feature, -1, True)
+        feature = feature - mean.expand(-1, -1, feature.shape[-1])
+        cov_matrix = torch.matmul(feature, torch.transpose(feature, -2, -1)) / feature.shape[-1]
+        return cov_matrix
+    
+    def iw(self, feature, cov_matrix):
+        '''
+        IW(Instance Whitening):
+        A feature after IW transform, that will have zero mean and that's diag(covariance matrix) will be 1.
+        (This idea is from Whitening Transform which's output have a identity matrix.)
+
+        feature.shape = [B, C, HW]
+        cov_matrix.shape = [B, C, C]
+        iw_feature.shape = [B, C, HW]
+
+        tips:
+            We don't need to worry what if batch size is odd, cause torch.diagonal can handle this issue.
+        '''
+        dia_cov = torch.diagonal(cov_matrix, dim1=1, dim2=2).unsqueeze(-1)
+        dia_cov = torch.sqrt(dia_cov)
+        mean = torch.mean(feature, -1, True)
+        feature = feature - mean.expand(-1, -1, feature.shape[-1])
+        iw_feature = feature / dia_cov.expand(-1, -1, feature.shape[-1])
+        return iw_feature
+
+    def bbox_decode(self, anchor_points, pred_dist, pred_angle):
+        """
+        Decode predicted object bounding box coordinates from anchor points and distribution.
+
+        Args:
+            anchor_points (torch.Tensor): Anchor points, (h*w, 2).
+            pred_dist (torch.Tensor): Predicted rotated distance, (bs, h*w, 4).
+            pred_angle (torch.Tensor): Predicted angle, (bs, h*w, 1).
+
+        Returns:
+            (torch.Tensor): Predicted rotated bounding boxes with angles, (bs, h*w, 5).
+        """
+        if self.use_dfl:
+            b, a, c = pred_dist.shape  # batch, anchors, channels
+            pred_dist = pred_dist.view(b, a, 4, c // 4).softmax(3).matmul(self.proj.type(pred_dist.dtype))
+        return torch.cat((dist2rbox(pred_dist, pred_angle, anchor_points), pred_angle), dim=-1)
+    
+class v8OBB_IDPnISWLoss(v8DetectionLoss):
+    def __init__(self, model, sigma):
+        super().__init__(model)
+        self.assigner = RotatedTaskAlignedAssigner(topk=10, num_classes=self.nc, alpha=0.5, beta=6.0)
+        self.bbox_loss = RotatedBboxLoss(self.reg_max - 1, use_dfl=self.use_dfl).to(self.device)
+        self.model = model
+        device = next(model.parameters()).device
+        self.device = device
+        self.sigma = sigma
+    def preprocess(self, targets, batch_size, scale_tensor):
+        """Preprocesses the target counts and matches with the input batch size to output a tensor."""
+        if targets.shape[0] == 0:
+            out = torch.zeros(batch_size, 0, 6, device=self.device)
+        else:
+            i = targets[:, 0]  # image index
+            _, counts = i.unique(return_counts=True)
+            counts = counts.to(dtype=torch.int32)
+            out = torch.zeros(batch_size, counts.max(), 6, device=self.device)
+            for j in range(batch_size):
+                matches = i == j
+                n = matches.sum()
+                if n:
+                    bboxes = targets[matches, 2:]
+                    bboxes[..., :4].mul_(scale_tensor)
+                    out[j, :n] = torch.cat([targets[matches, 1:2], bboxes], dim=-1)
+        return out
+
+    def __call__(self, preds, batch, backbone_output):
+        '''IDP'''
+        idp_loss = self.idp(backbone_output)
+
+        '''ISW'''
+        trans_img = None
+        for i in range(backbone_output.shape[0]):
+            if trans_img is not None:
+                if 'train' == batch['im_file'][i][31:36]:
+                    x = read_image(batch['im_file'][i][:36]+'_new_D3'+batch['im_file'][i][36:-4]+'_new.jpg')/255
+                elif 'val' == batch['im_file'][i][31:34]:
+                    x = read_image(batch['im_file'][i][:34]+'_new_D3'+batch['im_file'][i][34:-4]+'_new.jpg')/255
+                    x = x.to(torch.half)
+                x = x.unsqueeze(0)
+                trans_img = torch.cat((trans_img, x), dim=0)
+            else:
+                if 'train' == batch['im_file'][i][31:36]:
+                    trans_img = read_image(batch['im_file'][i][:36]+'_new_D3'+batch['im_file'][i][36:-4]+'_new.jpg')/255
+                elif 'val' == batch['im_file'][i][31:34]:
+                    trans_img = read_image(batch['im_file'][i][:34]+'_new_D3'+batch['im_file'][i][34:-4]+'_new.jpg')/255
+                    trans_img = trans_img.to(torch.half)
+                trans_img = trans_img.unsqueeze(0)
+        trans_img = trans_img.to(self.device)
+
+        _, trans_preds = self.model(trans_img)
+        isw_loss = self.isw(backbone_output, trans_preds, self.sigma)
+
+        """Calculate and return the loss for the YOLO model."""
+        loss = torch.zeros(3, device=self.device)  # box, cls, dfl
+        feats, pred_angle = preds if isinstance(preds[0], list) else preds[1]
+        batch_size = pred_angle.shape[0]  # batch size, number of masks, mask height, mask width
+        pred_distri, pred_scores = torch.cat([xi.view(feats[0].shape[0], self.no, -1) for xi in feats], 2).split(
+            (self.reg_max * 4, self.nc), 1
+        )
+
+        # b, grids, ..
+        pred_scores = pred_scores.permute(0, 2, 1).contiguous()
+        pred_distri = pred_distri.permute(0, 2, 1).contiguous()
+        pred_angle = pred_angle.permute(0, 2, 1).contiguous()
+
+        dtype = pred_scores.dtype
+        imgsz = torch.tensor(feats[0].shape[2:], device=self.device, dtype=dtype) * self.stride[0]  # image size (h,w)
+        anchor_points, stride_tensor = make_anchors(feats, self.stride, 0.5)
+
+        # targets
+        try:
+            batch_idx = batch["batch_idx"].view(-1, 1)
+            targets = torch.cat((batch_idx, batch["cls"].view(-1, 1), batch["bboxes"].view(-1, 5)), 1)
+            rw, rh = targets[:, 4] * imgsz[0].item(), targets[:, 5] * imgsz[1].item()
+            targets = targets[(rw >= 2) & (rh >= 2)]  # filter rboxes of tiny size to stabilize training
+            targets = self.preprocess(targets.to(self.device), batch_size, scale_tensor=imgsz[[1, 0, 1, 0]])
+            gt_labels, gt_bboxes = targets.split((1, 5), 2)  # cls, xywhr
+            mask_gt = gt_bboxes.sum(2, keepdim=True).gt_(0)
+        except RuntimeError as e:
+            raise TypeError(
+                "ERROR ❌ OBB dataset incorrectly formatted or not a OBB dataset.\n"
+                "This error can occur when incorrectly training a 'OBB' model on a 'detect' dataset, "
+                "i.e. 'yolo train model=yolov8n-obb.pt data=dota8.yaml'.\nVerify your dataset is a "
+                "correctly formatted 'OBB' dataset using 'data=dota8.yaml' "
+                "as an example.\nSee https://docs.ultralytics.com/datasets/obb/ for help."
+            ) from e
+
+        # Pboxes
+        pred_bboxes = self.bbox_decode(anchor_points, pred_distri, pred_angle)  # xyxy, (b, h*w, 4)
+
+        bboxes_for_assigner = pred_bboxes.clone().detach()
+        # Only the first four elements need to be scaled
+        bboxes_for_assigner[..., :4] *= stride_tensor
+        _, target_bboxes, target_scores, fg_mask, _ = self.assigner(
+            pred_scores.detach().sigmoid(),
+            bboxes_for_assigner.type(gt_bboxes.dtype),
+            anchor_points * stride_tensor,
+            gt_labels,
+            gt_bboxes,
+            mask_gt,
+        )
+
+        target_scores_sum = max(target_scores.sum(), 1)
+
+        # Cls loss
+        # loss[1] = self.varifocal_loss(pred_scores, target_scores, target_labels) / target_scores_sum  # VFL way
+        loss[1] = self.bce(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum  # BCE
+
+        # Bbox loss
+        if fg_mask.sum():
+            target_bboxes[..., :4] /= stride_tensor
+            loss[0], loss[2] = self.bbox_loss(
+                pred_distri, pred_bboxes, anchor_points, target_bboxes, target_scores, target_scores_sum, fg_mask
+            )
+        else:
+            loss[0] += (pred_angle * 0).sum()
+
+        loss[0] *= self.hyp.box  # box gain
+        loss[1] *= self.hyp.cls  # cls gain
+        loss[2] *= self.hyp.dfl  # dfl gain
+
+        loss[0] += (idp_loss/3 + isw_loss/3)
+        loss[1] += (idp_loss/3 + isw_loss/3)
+        loss[2] += (idp_loss/3 + isw_loss/3)
+
+        return loss.sum() * batch_size, loss.detach()  # loss(box, cls, dfl)
+
+    def isw(self, ori_output, trans_output, sigma=0.8):
+        '''
+        Instance Selective Whitening(ISW)
+
+        trans_output.shape = [B, C, H, W] => [B, C, HW]
+        ori_output.shape = [B, C, H, W] => [B, C, HW]
+        trans_cov[B, C, C]:  Transform feature's Covariance Matrix
+        ori_cov[B, C, C]:    Original feature's Covariance Matrix
+        variance[1, C, C]:      Variance matrix of trans_cov and ori_cov after instance whitening
+        isw[B, C, C]
+        '''
+        trans_output = trans_output.reshape([trans_output.shape[0], trans_output.shape[1], -1])
+        ori_output = ori_output.reshape([ori_output.shape[0], ori_output.shape[1], -1])
+        trans_cov = self.cov_matrix(trans_output)
+        ori_cov = self.cov_matrix(ori_output)
+        trans_output = self.iw(trans_output, trans_cov)
+        ori_output = self.iw(ori_output, ori_cov)
+        trans_cov = self.cov_matrix(trans_output)
+        ori_cov = self.cov_matrix(ori_output)
+        variance = self.var_matrix(trans_cov, ori_cov)
+        mask = variance > (variance.mean()*sigma)
+        num = mask.sum()
+        isw = ori_cov * mask
+        isw = torch.norm(isw, p=1) / num
+        return isw
+
+    def var_matrix(self, cov_1, cov_2):
+        '''
+        Variance Matrix
+        This variance is to think all stochastic variable is a pixel, then do something like covariance matrix.
+        That why the term cov_1*cov_1 and cov_2*cov_2 is element-wise multiplier.
+        And variance need to calculate a mean of all sample in one batch.
+
+        cov_1.shape, cov_2.shape = [B, C, C]
+        variance.shape = [B, C, C] => [1, C, C]
+        '''
+        mean = (cov_1 + cov_2) / 2
+        cov_1 = cov_1 - mean
+        cov_2 = cov_2 - mean
+        variance = (cov_1 * cov_1 + cov_2 * cov_2) / 2
+        variance = torch.mean(variance, 0, True)
+        return variance
+    
+    def idp(self, output):
+        '''
+        Instance Selective Whitening(ISW)
+
+        output.shape = [B, C, H, W] => [B, C, HW]
+        cov[B, C, C]:  Transform feature's Covariance Matrix
+        '''
+        output = output.reshape([output.shape[0], output.shape[1], -1])
+        cov = self.cov_matrix(output)
+        output = self.iw(output, cov)
+        cov = self.cov_matrix(output)
+        eye = torch.eye(cov.shape[-1], device=self.device).unsqueeze(0)
+        eyes = torch.eye(cov.shape[-1], device=self.device).unsqueeze(0)
+        for i in range(output.shape[0]-1):
+            eyes = torch.cat((eyes, eye), 0)
+        idp = cov - eyes
+        sign = torch.sign(idp)
+        idp = idp * sign
+        return idp.mean()
+
+    def cov_matrix(self, feature):
+        '''
+        Covariance Matrix
+        cov_matrix: convariance matrix
+        mean: mean of each channel
+
+        feature.shape = [B, C, HW]
+        cov_matrix.shape = [B, C, C]
+        '''
+        mean = torch.mean(feature, -1, True)
+        feature = feature - mean.expand(-1, -1, feature.shape[-1])
+        cov_matrix = torch.matmul(feature, torch.transpose(feature, -2, -1)) / feature.shape[-1]
+        return cov_matrix
+    
+    def iw(self, feature, cov_matrix):
+        '''
+        IW(Instance Whitening):
+        A feature after IW transform, that will have zero mean and that's diag(covariance matrix) will be 1.
+        (This idea is from Whitening Transform which's output have a identity matrix.)
+
+        feature.shape = [B, C, HW]
+        cov_matrix.shape = [B, C, C]
+        iw_feature.shape = [B, C, HW]
+
+        tips:
+            We don't need to worry what if batch size is odd, cause torch.diagonal can handle this issue.
+        '''
+        dia_cov = torch.diagonal(cov_matrix, dim1=1, dim2=2).unsqueeze(-1)
+        dia_cov = torch.sqrt(dia_cov)
+        mean = torch.mean(feature, -1, True)
+        feature = feature - mean.expand(-1, -1, feature.shape[-1])
+        iw_feature = feature / dia_cov.expand(-1, -1, feature.shape[-1])
+        return iw_feature
+
+    def bbox_decode(self, anchor_points, pred_dist, pred_angle):
+        """
+        Decode predicted object bounding box coordinates from anchor points and distribution.
+
+        Args:
+            anchor_points (torch.Tensor): Anchor points, (h*w, 2).
+            pred_dist (torch.Tensor): Predicted rotated distance, (bs, h*w, 4).
+            pred_angle (torch.Tensor): Predicted angle, (bs, h*w, 1).
+
+        Returns:
+            (torch.Tensor): Predicted rotated bounding boxes with angles, (bs, h*w, 5).
+        """
+        if self.use_dfl:
+            b, a, c = pred_dist.shape  # batch, anchors, channels
+            pred_dist = pred_dist.view(b, a, 4, c // 4).softmax(3).matmul(self.proj.type(pred_dist.dtype))
+        return torch.cat((dist2rbox(pred_dist, pred_angle, anchor_points), pred_angle), dim=-1)
+    
+class v8OBB_IDPnCRLoss(v8DetectionLoss):
+    def __init__(self, model):
+        super().__init__(model)
+        self.assigner = RotatedTaskAlignedAssigner(topk=10, num_classes=self.nc, alpha=0.5, beta=6.0)
+        self.bbox_loss = RotatedBboxLoss(self.reg_max - 1, use_dfl=self.use_dfl).to(self.device)
+        self.model = model
+        device = next(model.parameters()).device
+        self.device = device
+    def preprocess(self, targets, batch_size, scale_tensor):
+        """Preprocesses the target counts and matches with the input batch size to output a tensor."""
+        if targets.shape[0] == 0:
+            out = torch.zeros(batch_size, 0, 6, device=self.device)
+        else:
+            i = targets[:, 0]  # image index
+            _, counts = i.unique(return_counts=True)
+            counts = counts.to(dtype=torch.int32)
+            out = torch.zeros(batch_size, counts.max(), 6, device=self.device)
+            for j in range(batch_size):
+                matches = i == j
+                n = matches.sum()
+                if n:
+                    bboxes = targets[matches, 2:]
+                    bboxes[..., :4].mul_(scale_tensor)
+                    out[j, :n] = torch.cat([targets[matches, 1:2], bboxes], dim=-1)
+        return out
+
+    def __call__(self, preds, batch, backbone_output):
+        '''IDP'''
+        idp_loss = self.idp(backbone_output)
+
+        '''Cross'''
+        trans_img = None
+        for i in range(backbone_output.shape[0]):
+            if trans_img is not None:
+                if 'train' == batch['im_file'][i][31:36]:
+                    x = read_image(batch['im_file'][i][:36]+'_new_D3'+batch['im_file'][i][36:-4]+'_new.jpg')/255
+                elif 'val' == batch['im_file'][i][31:34]:
+                    x = read_image(batch['im_file'][i][:34]+'_new_D3'+batch['im_file'][i][34:-4]+'_new.jpg')/255
+                    x = x.to(torch.half)
+                x = x.unsqueeze(0)
+                trans_img = torch.cat((trans_img, x), dim=0)
+            else:
+                if 'train' == batch['im_file'][i][31:36]:
+                    trans_img = read_image(batch['im_file'][i][:36]+'_new_D3'+batch['im_file'][i][36:-4]+'_new.jpg')/255
+                elif 'val' == batch['im_file'][i][31:34]:
+                    trans_img = read_image(batch['im_file'][i][:34]+'_new_D3'+batch['im_file'][i][34:-4]+'_new.jpg')/255
+                    trans_img = trans_img.to(torch.half)
+                trans_img = trans_img.unsqueeze(0)
+        trans_img = trans_img.to(self.device)
+
+        _, trans_preds = self.model(trans_img)
+        if backbone_output.shape != trans_preds.shape:
+            pad = torch.nn.ZeroPad2d((0, 1, 0, 1))
+            trans_preds = pad(trans_preds)
+        cross_loss = self.cross(backbone_output, trans_preds)
+
+        """Calculate and return the loss for the YOLO model."""
+        loss = torch.zeros(3, device=self.device)  # box, cls, dfl
+        feats, pred_angle = preds if isinstance(preds[0], list) else preds[1]
+        batch_size = pred_angle.shape[0]  # batch size, number of masks, mask height, mask width
+        pred_distri, pred_scores = torch.cat([xi.view(feats[0].shape[0], self.no, -1) for xi in feats], 2).split(
+            (self.reg_max * 4, self.nc), 1
+        )
+
+        # b, grids, ..
+        pred_scores = pred_scores.permute(0, 2, 1).contiguous()
+        pred_distri = pred_distri.permute(0, 2, 1).contiguous()
+        pred_angle = pred_angle.permute(0, 2, 1).contiguous()
+
+        dtype = pred_scores.dtype
+        imgsz = torch.tensor(feats[0].shape[2:], device=self.device, dtype=dtype) * self.stride[0]  # image size (h,w)
+        anchor_points, stride_tensor = make_anchors(feats, self.stride, 0.5)
+
+        # targets
+        try:
+            batch_idx = batch["batch_idx"].view(-1, 1)
+            targets = torch.cat((batch_idx, batch["cls"].view(-1, 1), batch["bboxes"].view(-1, 5)), 1)
+            rw, rh = targets[:, 4] * imgsz[0].item(), targets[:, 5] * imgsz[1].item()
+            targets = targets[(rw >= 2) & (rh >= 2)]  # filter rboxes of tiny size to stabilize training
+            targets = self.preprocess(targets.to(self.device), batch_size, scale_tensor=imgsz[[1, 0, 1, 0]])
+            gt_labels, gt_bboxes = targets.split((1, 5), 2)  # cls, xywhr
+            mask_gt = gt_bboxes.sum(2, keepdim=True).gt_(0)
+        except RuntimeError as e:
+            raise TypeError(
+                "ERROR ❌ OBB dataset incorrectly formatted or not a OBB dataset.\n"
+                "This error can occur when incorrectly training a 'OBB' model on a 'detect' dataset, "
+                "i.e. 'yolo train model=yolov8n-obb.pt data=dota8.yaml'.\nVerify your dataset is a "
+                "correctly formatted 'OBB' dataset using 'data=dota8.yaml' "
+                "as an example.\nSee https://docs.ultralytics.com/datasets/obb/ for help."
+            ) from e
+
+        # Pboxes
+        pred_bboxes = self.bbox_decode(anchor_points, pred_distri, pred_angle)  # xyxy, (b, h*w, 4)
+
+        bboxes_for_assigner = pred_bboxes.clone().detach()
+        # Only the first four elements need to be scaled
+        bboxes_for_assigner[..., :4] *= stride_tensor
+        _, target_bboxes, target_scores, fg_mask, _ = self.assigner(
+            pred_scores.detach().sigmoid(),
+            bboxes_for_assigner.type(gt_bboxes.dtype),
+            anchor_points * stride_tensor,
+            gt_labels,
+            gt_bboxes,
+            mask_gt,
+        )
+
+        target_scores_sum = max(target_scores.sum(), 1)
+
+        # Cls loss
+        # loss[1] = self.varifocal_loss(pred_scores, target_scores, target_labels) / target_scores_sum  # VFL way
+        loss[1] = self.bce(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum  # BCE
+
+        # Bbox loss
+        if fg_mask.sum():
+            target_bboxes[..., :4] /= stride_tensor
+            loss[0], loss[2] = self.bbox_loss(
+                pred_distri, pred_bboxes, anchor_points, target_bboxes, target_scores, target_scores_sum, fg_mask
+            )
+        else:
+            loss[0] += (pred_angle * 0).sum()
+
+        loss[0] *= self.hyp.box  # box gain
+        loss[1] *= self.hyp.cls  # cls gain
+        loss[2] *= self.hyp.dfl  # dfl gain
+
+        loss[0] += (idp_loss/3 + cross_loss/3)
+        loss[1] += (idp_loss/3 + cross_loss/3)
+        loss[2] += (idp_loss/3 + cross_loss/3)
+
+        return loss.sum() * batch_size, loss.detach()  # loss(box, cls, dfl)
+
+    def cross(self, ori_output, trans_output):
+        '''
+        Cross two aesthetic with intersection angel from two feature at each channels. 
+        Calculate covariance matrix of each feature, 
+        then using them to extract angel.
+
+        ori_output.shape = [B, C, H, W] -> [B, C, HW]
+        trans_output.shape = [B, C, H, W] -> [B, C, HW]
+        ori_cov.shape = [B, C, C]
+        trans_cov.shape = [B, C, C]
+        cross.shape = [B, C, C]
+        '''
+        trans_output = trans_output.reshape([trans_output.shape[0], trans_output.shape[1], -1])
+        ori_output = ori_output.reshape([ori_output.shape[0], ori_output.shape[1], -1])
+        HW = ori_output.shape[-1]
+        ori_cov = self.cov_matrix(ori_output)
+        trans_cov = self.cov_matrix(trans_output)
+        extractor = self.extractor(ori_cov, trans_cov, HW)
+        cross = self.cross_cos(ori_output, trans_output, extractor)
+        eye = torch.eye(cross.shape[-1], device=self.device).unsqueeze(0)
+        eyes = torch.eye(cross.shape[-1], device=self.device).unsqueeze(0)
+        for i in range(ori_output.shape[0]-1):
+            eyes = torch.cat((eyes, eye), 0)
+        cross = cross - eyes
+        sign = torch.sign(cross)
+        cross = cross * sign
+        return cross.mean()
+        
+    def cross_cos(self, ori_output, trans_output, extractor):
+        '''
+        cross_cos: The cos(theta) of each two channel from two different feature
+        After ori_output and trans_output do mat_mul,
+        we can get a mtrix which have |ori_ch_x|*|trans_ch_y|*cos(theta) on each pixel. ( x, y={1, 2, ..., C} )
+        Using the extractor to get the cos(theta) of each two channel from two different feature.
+
+        ori_output.shape = trans_output.shape = [B, C, HW]
+        ori_cov.shape = trans_cov.shape = [B, C, C]
+        cross_cos.shape = [B, C, C]
+        '''
+        mean = torch.mean(ori_output, -1, True)
+        ori_output = ori_output - mean.expand(-1, -1, ori_output.shape[-1])
+        mean = torch.mean(trans_output, -1, True)
+        trans_output = trans_output - mean.expand(-1, -1, trans_output.shape[-1])
+
+        cross_cos = torch.matmul(ori_output, torch.transpose(trans_output, -2, -1)) / ori_output.shape[-1]
+        cross_cos = cross_cos / extractor
+        return cross_cos
+
+    def extractor(self, ori_cov, trans_cov, HW):
+        '''
+        Cause torch.matmul can not do batch vector product, 
+        so we need to expand two diagonal vector from two matix first.
+        More than that, we need to transpose the left vector before expand.
+        Then sqrt the extractor. (So when using extractor, remember to get the reciprocal of extractor!)
+
+        ori_cov.shape = trans_cov.shape = [B, C, C]
+        extractor.shape = [B, C, C]
+        '''
+        C = ori_cov.shape[-1]
+        ori_cov = torch.diagonal(ori_cov, dim1=1, dim2=2).unsqueeze(-1)
+        trans_cov = torch.diagonal(trans_cov, dim1=1, dim2=2).unsqueeze(-1)
+        ori_cov = ori_cov.expand(-1, -1, C)
+        trans_cov = torch.transpose(trans_cov, 1, 2).expand(-1, C, -1)
+        extractor = torch.matmul(ori_cov, trans_cov) / HW
+        extractor = torch.sqrt(extractor)
+        return extractor
+    
+    def idp(self, output):
+        '''
+        Instance Selective Whitening(ISW)
+
+        output.shape = [B, C, H, W] => [B, C, HW]
+        cov[B, C, C]:  Transform feature's Covariance Matrix
+        '''
+        output = output.reshape([output.shape[0], output.shape[1], -1])
+        cov = self.cov_matrix(output)
+        output = self.iw(output, cov)
+        cov = self.cov_matrix(output)
+        eye = torch.eye(cov.shape[-1], device=self.device).unsqueeze(0)
+        eyes = torch.eye(cov.shape[-1], device=self.device).unsqueeze(0)
+        for i in range(output.shape[0]-1):
+            eyes = torch.cat((eyes, eye), 0)
+        idp = cov - eyes
         sign = torch.sign(idp)
         idp = idp * sign
         return idp.mean()

@@ -289,14 +289,19 @@ def gen_fit_one_epoch_1(epoch,
             cls_real_onehot[:, 0], cls_fake_onehot[:, 0], gen_fake_onehot[:, 1] = 1, 1, 1
             cls_real_onehot, cls_fake_onehot, gen_fake_onehot = cls_real_onehot.to(device), cls_fake_onehot.to(device), gen_fake_onehot.to(device)
 
-            if epoch < change_list[0] or change_list[1] < epoch < change_list[2] or change_list[3] < epoch < change_list[4]:
+            if epoch < change_list[0] or change_list[1] <= epoch < change_list[2] or change_list[3] <= epoch < change_list[4]:
                 train_dis = False
                 train_gen= True
                 gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen)
             
-            elif change_list[0] < epoch < change_list[1] or change_list[2] < epoch < change_list[3] or change_list[4] < epoch < change_list[5]:
+            elif change_list[0] <= epoch < change_list[1] or change_list[2] <= epoch < change_list[3] or change_list[4] <= epoch < change_list[5]:
                 train_dis = True
                 train_gen= False
+                gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen)
+
+            else:
+                train_dis = True
+                train_gen= True
                 gen_loss, gen_loss_ep, dis_loss, dis_loss_ep = gan_model.process(img, cls_real_onehot, cls_fake_onehot, gen_fake_onehot, gen_loss_ep, dis_loss_ep, train_dis, train_gen)
 
             pbar.set_postfix(**{'gen_batch_loss'    : gen_loss.data.cpu().numpy(), 
@@ -338,12 +343,20 @@ def gen_fit_one_epoch_1(epoch,
     #     best_val = val_loss
     #     best_epoch = epoch
 
-    for i in range(len(change_list)):
-        if epoch == change_list[i]-1 or epoch == change_list[i]:
-            torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, f'ep{epoch}.pth'))
-            gan_pred(f'ep{epoch}.pth')
-
-    gan_pred('last.pth')
+    img_list = ['56746_1', '57990_1', '88100_1']
+    if epoch%save_period == 0 and epoch != 9:
+        torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, f'ep{epoch}.pth'))
+        '''just for sample'''
+        gan_pred(image_id_list=img_list, weight=f'ep{epoch}.pth')
+    else:
+        for i in range(len(change_list)):
+            if epoch == change_list[i]-1 or epoch == change_list[i]:
+                torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, f'ep{epoch}.pth'))
+                '''just for sample'''
+                gan_pred(image_id_list=img_list, weight=f'ep{epoch}.pth')
+            
+    '''just for sample'''
+    gan_pred(image_id_list=img_list, weight='last.pth')
 
     # print(f'\ntrain_gen_loss:{gen_loss_ep} || train_dis_loss:{dis_loss_ep} || val_loss:{val_loss} || best_val_loss:{best_val} || best_epoch:{best_epoch}\n')
 

@@ -46,7 +46,7 @@ from ultralytics.nn.modules import (
 )
 from ultralytics.utils import DEFAULT_CFG_DICT, DEFAULT_CFG_KEYS, LOGGER, colorstr, emojis, yaml_load
 from ultralytics.utils.checks import check_requirements, check_suffix, check_yaml
-from ultralytics.utils.loss import v8ClassificationLoss, v8DetectionLoss, v8OBBLoss, v8PoseLoss, v8SegmentationLoss, v8ISWLoss, v8OBB_ISWLoss
+from ultralytics.utils.loss import v8ClassificationLoss, v8DetectionLoss, v8OBBLoss, v8PoseLoss, v8SegmentationLoss, v8OBB_CRLoss, v8OBB_ISWLoss, v8OBB_IDPLoss
 from ultralytics.utils.plotting import feature_visualization
 from ultralytics.utils.torch_utils import (
     fuse_conv_and_bn,
@@ -98,9 +98,9 @@ class BaseModel(nn.Module):
         """
         if augment:
             return self._predict_augment(x)
-        # x, backbone_out = self._predict_once(x, profile, visualize, embed) #aaaa
-        return self._predict_once(x, profile, visualize, embed)
-        # return x, backbone_out #aaaa
+        x, backbone_out = self._predict_once(x, profile, visualize, embed) #aaaa
+        # return self._predict_once(x, profile, visualize, embed)
+        return x, backbone_out #aaaa
 
     def _predict_once(self, x, profile=False, visualize=False, embed=None):
         """
@@ -122,8 +122,8 @@ class BaseModel(nn.Module):
             if profile:
                 self._profile_one_layer(m, x, dt)
             x = m(x)  # run
-            # if type(m) == SPPF: #aaaa
-            #     backbone_out = x #aaaa
+            if type(m) == SPPF: #aaaa
+                backbone_out = x #aaaa
             y.append(x if m.i in self.save else None)  # save output
             if visualize:
                 feature_visualization(x, m.type, m.i, save_dir=visualize)
@@ -131,8 +131,8 @@ class BaseModel(nn.Module):
                 embeddings.append(nn.functional.adaptive_avg_pool2d(x, (1, 1)).squeeze(-1).squeeze(-1))  # flatten
                 if m.i == max(embed):
                     return torch.unbind(torch.cat(embeddings, 1), dim=0)
-        return x
-        # return x,  backbone_out #aaaa
+        # return x
+        return x,  backbone_out #aaaa
 
     def _predict_augment(self, x):
         """Perform augmentations on input image x and return augmented inference."""
@@ -262,9 +262,9 @@ class BaseModel(nn.Module):
         if not hasattr(self, "criterion"):
             self.criterion = self.init_criterion()
         # preds = self.forward(batch["img"]) if preds is None else preds
-        # preds, backbone_output = self.forward(batch["img"]) if preds is None else preds #aaaa
-        return self.criterion(preds, batch)
-        # return self.criterion(preds, batch, backbone_output) # aaaa
+        preds, backbone_output = self.forward(batch["img"]) if preds is None else preds #aaaa
+        # return self.criterion(preds, batch)
+        return self.criterion(preds, batch, backbone_output) # aaaa
 
     def init_criterion(self):
         """Initialize the loss criterion for the BaseModel."""
@@ -358,7 +358,9 @@ class OBBModel(DetectionModel):
     def init_criterion(self):
         """Initialize the loss criterion for the model."""
         # return v8OBBLoss(self)
-        return v8OBB_ISWLoss(self, sigma=0.8) # aaaa
+        return v8OBB_CRLoss(self) #aaaa
+        # return v8OBB_ISWLoss(self, sigma=0.8) # aaaa
+        # return v8OBB_IDPLoss(self) #aaaa
 
 
 class SegmentationModel(DetectionModel):

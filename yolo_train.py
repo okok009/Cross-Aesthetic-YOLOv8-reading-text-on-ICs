@@ -21,6 +21,5 @@ if __name__ == "__main__":
 
     model = YOLO('E:/ray_workspace/yolov8_master/runs/obb/train_best/weights/best.pt')
     model.to(device)
-    model.train(data='E:/ray_workspace/yolov8_master/ictext.yaml', epochs=100, imgsz=1024, batch=3)
-    # model.train(data='D:/Datasets/ICText_cls/', epochs=200, imgsz=120, batch=5)
+    model.train(data='E:/ray_workspace/yolov8_master/ictext.yaml', epochs=100, imgsz=1024, batch=5)
     print('--------------------------')
