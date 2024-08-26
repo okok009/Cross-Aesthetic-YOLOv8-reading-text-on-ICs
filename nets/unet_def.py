@@ -13,6 +13,7 @@ I only use unt_rdefnet18, that why the def has some differences.
 '''
 
 class Unet_model(nn.Module):
+    '''b_out: backbone output'''
     def __init__(self, backbone, in_channels_list, num_classes=2, out_channels_list=[64, 128, 256, 512], input_size=400, b_out=False):
         super().__init__()
         self.final = nn.Conv2d(64, num_classes, 1)
