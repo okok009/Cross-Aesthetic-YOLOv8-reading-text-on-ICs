@@ -46,7 +46,19 @@ if __name__=='__main__':
     # gen_model = gen_model.to(device=device)
     gen_model_name = 'spnet'
     seg_model = 'unt_rdefnet152'
-    gen_model = SPNet(64, input_size=120, num_palette=16)
+
+    '''
+    spnet_old_verison_2 or spnet_old_version
+    '''
+    # gen_model = SPNet(64, input_size=120, num_palette=16, palette_name='old_version_2')
+    # gen_model = SPNet(64, input_size=120, num_palette=16, palette_name='old_version')
+
+    '''
+    spnet_new_version
+    '''
+    gen_model = SPNet(in_channel=64, input_size=120, num_palette=16, palette_name='new_version')
+    # gen_model = SPNet(input_size=120, num_palette=3)
+
     gen_model = gen_model.to(device=device)
 
     dis_model_name = 'vgg19'
@@ -57,23 +69,24 @@ if __name__=='__main__':
     dis_model = dis_model.to(device=device)
 
     gan_model_name = 'GanModel'
-    weight = f'checkpoints/{gan_model_name}/{gen_model_name}/last.pth'
+    weight = f'checkpoints/{gan_model_name}/{gen_model_name}/old_version_2/last.pth'
     weight = torch.load(weight)
-    model = GanModel(gen_model, dis_model)
+    model = GanModel(gen_model, dis_model, gen_model='spnet_new_version')
     model_dict = model.state_dict()
-    # no_load_key, temp_dict = [], {}
-    # for k, v in weight.items():
+    no_load_key, temp_dict = [], {}
+    for k, v in weight.items():
 
-    #     if k in model_dict.keys() and np.shape(model_dict[k]) == np.shape(v):
-    #         temp_dict[k] = v
-    #     else:
-    #         no_load_key.append(k)
+        if k in model_dict.keys() and np.shape(model_dict[k]) == np.shape(v):
+            temp_dict[k] = v
+        else:
+            no_load_key.append(k)
 
-    # print('no_load_key:\n', no_load_key)
-    # model_dict.update(temp_dict)
-    model.load_state_dict(weight)
-    for param in model.generator.seg.parameters():
-        param.requires_grad = False
+    print('no_load_key:\n', no_load_key)
+    model_dict.update(temp_dict)
+    model.load_state_dict(model_dict)
+    del temp_dict, weight, model_dict
+    # for param in model.generator.seg.parameters():
+    #     param.requires_grad = True
 
     # -----------------------------------
     # optimizer
@@ -98,7 +111,7 @@ if __name__=='__main__':
     # data_loader
     # -----------------------------------
     img_dir = 'D:/Datasets/ICText_cls/train/clean_img/'
-    batch_size = 40
+    batch_size = 30
     shuffle = True
     epochs = 200
     transform = v2.Compose([
@@ -142,7 +155,8 @@ if __name__=='__main__':
                                         best_val=best_val,
                                         gen_loss_ep=gen_loss_ep,
                                         dis_loss_ep=dis_loss_ep,
-                                        change_list=change_list)
+                                        change_list=change_list,
+                                        gen_model_name='spnet_new_version')
 # for epoch in range(1, epochs+1):
 #         best_ssim, best_epoch = gen_fit_one_epoch(epoch,
 #                                         epochs,

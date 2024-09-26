@@ -5,7 +5,7 @@ from utils.optimizer import adam, sgd
 
 
 class GanModel(nn.Module):
-    def __init__(self, generator, discriminator, gen_model='spnet'):
+    def __init__(self, generator, discriminator, gen_model='spnet_new_version'):
         super(GanModel, self).__init__()
         self.add_module('generator', generator)
         self.add_module('discriminator', discriminator)
@@ -61,7 +61,7 @@ class GanModel(nn.Module):
 
     def forward(self, x, pred=False):
         '''
-        SPNet:
+        SPNet old and old2:
         b: binarize result
         c: color result
         c_1: color 1
@@ -69,7 +69,14 @@ class GanModel(nn.Module):
         --------------------
         unt
         '''
-        if self.gen_model == 'spnet':
+        if self.gen_model == 'spnet_new_version':
+            b, result = self.generator(x)
+            if not pred:
+                return result
+            else:
+                return b, result
+        
+        elif self.gen_model == 'spnet_old_version' or self.gen_model == 'spnet_old_version_2':
             b, c = self.generator(x)
             if not pred:
                 if c.shape[-1] == 2:
@@ -101,8 +108,8 @@ class GanModel(nn.Module):
             else:
                 return b, c
         else:
-            output = self.generator(x)
-            return output
+            result = self.generator(x)
+            return result
 
     
     def dis_forward(self, x):

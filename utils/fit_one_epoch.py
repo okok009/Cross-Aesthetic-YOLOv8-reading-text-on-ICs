@@ -259,7 +259,8 @@ def gen_fit_one_epoch_1(epoch,
                        best_epoch=0,
                        gen_loss_ep = 0,
                        dis_loss_ep = 0,
-                       change_list = [50, 55, 95, 100, 155, 195]):
+                       change_list = [50, 55, 95, 100, 155, 195],
+                       gen_model_name = 'spnet_new_version'):
     '''
     gen_cls_onehot = [0, 1] ---> input is clean imgs and want to generate Only_broken imgs
     '''
@@ -347,16 +348,16 @@ def gen_fit_one_epoch_1(epoch,
     if epoch%save_period == 0 and epoch != 9:
         torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, f'ep{epoch}.pth'))
         '''just for sample'''
-        gan_pred(image_id_list=img_list, weight=f'ep{epoch}.pth')
+        gan_pred(model_=gan_model, image_id_list=img_list, write=True, weight=f'ep{epoch}.pth', gen_model_name=gen_model_name)
     else:
         for i in range(len(change_list)):
             if epoch == change_list[i]-1 or epoch == change_list[i]:
                 torch.save(gan_model.state_dict(), os.path.join('E:/ray_workspace/CrossAestheticYOLOv8/', save_dir, f'ep{epoch}.pth'))
                 '''just for sample'''
-                gan_pred(image_id_list=img_list, weight=f'ep{epoch}.pth')
+                gan_pred(model_=gan_model, image_id_list=img_list, write=True, weight=f'ep{epoch}.pth', gen_model_name=gen_model_name)
             
     '''just for sample'''
-    gan_pred(image_id_list=img_list, weight='last.pth')
+    gan_pred(model_=gan_model, image_id_list=img_list, write=True, weight='last.pth', gen_model_name=gen_model_name)
 
     # print(f'\ntrain_gen_loss:{gen_loss_ep} || train_dis_loss:{dis_loss_ep} || val_loss:{val_loss} || best_val_loss:{best_val} || best_epoch:{best_epoch}\n')
 

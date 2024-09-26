@@ -71,7 +71,7 @@ class DefNet(nn.Module):
 
         return [feat1, feat2, feat3, feat4, feat5]
 
-class Def_Block_S(nn.Module):
+class Def_Block_SD(nn.Module):
     '''sdefnet18和sdefnet34的基本block
 
     . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -110,7 +110,7 @@ class Def_Block_S(nn.Module):
 
         return out
 
-class Def_Block_SR(nn.Module):
+class Def_Block_RD(nn.Module):
     '''srdefnet18和srdefnet34的基本block
 
     . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -156,7 +156,7 @@ class Def_Block_SR(nn.Module):
 
         return out
 
-class Def_Block_R(nn.Module):
+class Def_Block_DR(nn.Module):
     '''rdefnet18和rdefnet34的基本block
 
     . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -204,7 +204,7 @@ class Def_Block_R(nn.Module):
 
         return out
 
-class Def_Bottle_S(nn.Module):
+class Def_Bottle_SD(nn.Module):
     '''sdefnet50,sdefnet101和sdefnet152的基本block
 
     . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -248,7 +248,7 @@ class Def_Bottle_S(nn.Module):
 
         return out
 
-class Def_Bottle_SR(nn.Module):
+class Def_Bottle_RD(nn.Module):
     '''srdefnet50,srdefnet101和srdefnet152的基本block
 
     . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -299,7 +299,7 @@ class Def_Bottle_SR(nn.Module):
 
         return out
 
-class Def_Bottle_R(nn.Module):
+class Def_Bottle_DR(nn.Module):
     '''rdefnet50,rdefnet101和rdefnet152的基本block
 
     . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -357,7 +357,7 @@ def sdefnet18(pretrained_own=False):
     '''
     pretrained_own : 非None表要載入自己的權重(權重檔的相對位置)
     '''
-    model = DefNet(Def_Block_S, [2, 2, 2, 2])
+    model = DefNet(Def_Block_SD, [2, 2, 2, 2])
     if pretrained_own:
         model.load_state_dict(pretrained_own, strict=False)
 
@@ -367,7 +367,7 @@ def srdefnet18(pretrained_own=False):
     '''
     pretrained_own : 非None表要載入自己的權重(權重檔的相對位置)
     '''
-    model = DefNet(Def_Block_SR, [2, 2, 2, 2])
+    model = DefNet(Def_Block_RD, [2, 2, 2, 2])
     if pretrained_own:
         model.load_state_dict(pretrained_own, strict=False)
 
@@ -377,7 +377,7 @@ def rdefnet18(pretrained_own=False):
     '''
     pretrained_own : 非None表要載入自己的權重(權重檔的相對位置)
     '''
-    model = DefNet(Def_Block_R, [2, 2, 2, 2])
+    model = DefNet(Def_Block_DR, [2, 2, 2, 2])
     if pretrained_own:
         model.load_state_dict(pretrained_own, strict=False)
 
@@ -387,7 +387,7 @@ def sdefnet34(pretrained_own=False):
     '''
     pretrained_own : 非None表要載入自己的權重(權重檔的相對位置)
     '''
-    model = DefNet(Def_Block_S, [3, 4, 6, 3])
+    model = DefNet(Def_Block_SD, [3, 4, 6, 3])
     if pretrained_own:
         model.load_state_dict(pretrained_own, strict=False)
 
@@ -397,7 +397,7 @@ def srdefnet34(pretrained_own=False):
     '''
     pretrained_own : 非None表要載入自己的權重(權重檔的相對位置)
     '''
-    model = DefNet(Def_Block_SR, [3, 4, 6, 3])
+    model = DefNet(Def_Block_RD, [3, 4, 6, 3])
     if pretrained_own:
         model.load_state_dict(pretrained_own, strict=False)
 
@@ -407,7 +407,7 @@ def rdefnet34(pretrained_own=False):
     '''
     pretrained_own : 非None表要載入自己的權重(權重檔的相對位置)
     '''
-    model = DefNet(Def_Block_R, [3, 4, 6, 3])
+    model = DefNet(Def_Block_DR, [3, 4, 6, 3])
     if pretrained_own:
         model.load_state_dict(pretrained_own, strict=False)
 
@@ -417,7 +417,7 @@ def sdefnet50(pretrained_own=False):
     '''
     pretrained_own : 非None表要載入自己的權重(權重檔的相對位置)
     '''
-    model = DefNet(Def_Bottle_S, [3, 4, 6, 3])
+    model = DefNet(Def_Bottle_SD, [3, 4, 6, 3])
     if pretrained_own:
         model.load_state_dict(pretrained_own, strict=False)
 
@@ -427,7 +427,7 @@ def srdefnet50(pretrained_own=False):
     '''
     pretrained_own : 非None表要載入自己的權重(權重檔的相對位置)
     '''
-    model = DefNet(Def_Bottle_SR, [3, 4, 6, 3])
+    model = DefNet(Def_Bottle_RD, [3, 4, 6, 3])
     if pretrained_own:
         model.load_state_dict(pretrained_own, strict=False)
 
@@ -437,7 +437,7 @@ def rdefnet50(pretrained_own=False):
     '''
     pretrained_own : 非None表要載入自己的權重(權重檔的相對位置)
     '''
-    model = DefNet(Def_Bottle_R, [3, 4, 6, 3])
+    model = DefNet(Def_Bottle_DR, [3, 4, 6, 3])
     if pretrained_own:
         model.load_state_dict(pretrained_own, strict=False)
 
@@ -447,7 +447,7 @@ def sdefnet101(pretrained_own=False):
     '''
     pretrained_own : 非None表要載入自己的權重(權重檔的相對位置)
     '''
-    model = DefNet(Def_Bottle_S, [3, 4, 23, 3])
+    model = DefNet(Def_Bottle_SD, [3, 4, 23, 3])
     if pretrained_own:
         model.load_state_dict(pretrained_own, strict=False)
 
@@ -457,7 +457,7 @@ def srdefnet101(pretrained_own=False):
     '''
     pretrained_own : 非None表要載入自己的權重(權重檔的相對位置)
     '''
-    model = DefNet(Def_Bottle_SR, [3, 4, 23, 3])
+    model = DefNet(Def_Bottle_RD, [3, 4, 23, 3])
     if pretrained_own:
         model.load_state_dict(pretrained_own, strict=False)
 
@@ -467,7 +467,7 @@ def rdefnet101(pretrained_own=False):
     '''
     pretrained_own : 非None表要載入自己的權重(權重檔的相對位置)
     '''
-    model = DefNet(Def_Bottle_R, [3, 4, 23, 3])
+    model = DefNet(Def_Bottle_DR, [3, 4, 23, 3])
     if pretrained_own:
         model.load_state_dict(pretrained_own, strict=False)
 
@@ -477,7 +477,7 @@ def sdefnet152(pretrained_own=False):
     '''
     pretrained_own : 非None表要載入自己的權重(權重檔的相對位置)
     '''
-    model = DefNet(Def_Bottle_S, [3, 8, 36, 3])
+    model = DefNet(Def_Bottle_SD, [3, 8, 36, 3])
     if pretrained_own:
         model.load_state_dict(pretrained_own, strict=False)
 
@@ -487,7 +487,7 @@ def srdefnet152(pretrained_own=False):
     '''
     pretrained_own : 非None表要載入自己的權重(權重檔的相對位置)
     '''
-    model = DefNet(Def_Bottle_SR, [3, 8, 36, 3])
+    model = DefNet(Def_Bottle_RD, [3, 8, 36, 3])
     if pretrained_own:
         model.load_state_dict(pretrained_own, strict=False)
 
@@ -497,7 +497,7 @@ def rdefnet152(pretrained_own=False):
     '''
     pretrained_own : 非None表要載入自己的權重(權重檔的相對位置)
     '''
-    model = DefNet(Def_Bottle_R, [3, 8, 36, 3])
+    model = DefNet(Def_Bottle_DR, [3, 8, 36, 3])
     if pretrained_own:
         model.load_state_dict(pretrained_own, strict=False)
 

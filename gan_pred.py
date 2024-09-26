@@ -48,7 +48,7 @@ def click(event, x, y, flags, param):
             networkcare_mask = cv2.cvtColor(networkcare_mask, cv2.COLOR_RGB2BGR)
             cv2.imshow("networkcare_mask", networkcare_mask)
 
-def gan_pred(image_id_list=None, weight=None, gen_model_name='spnet', write=False,
+def gan_pred(model_=None, image_id_list=None, weight=None, gen_model_name='spnet_new_version', write=False,
               check_output=False, check_feature=False, check_receptive_field=False,
                 check_networkcare=False):
     global out
@@ -74,21 +74,27 @@ def gan_pred(image_id_list=None, weight=None, gen_model_name='spnet', write=Fals
             image.requires_grad=True
 
         n_classes = 2
-
-        if gen_model_name == 'spnet':
-            gen_model = SPNet(64, input_size=120, num_palette=16)
-        else:
-            gen_model = unt_rdefnet152(3, input_size=120)   
-        gen_model = gen_model.to(device=device)
-
-        dis_model_name = 'vgg19'
-        dis_model = vgg(dis_model_name, n_classes, freezing=True)
-        dis_model = dis_model.to(device=device)
-
         gan_model_name = 'GanModel'
+
+        if model_ is not None:
+            model = model_
+        else:
+            if gen_model_name == 'spnet_old_version' or gen_model_name == 'spnet_old_version_2':
+                gen_model = SPNet(64, input_size=120, num_palette=16, palette_name=gen_model_name[6:])
+            elif gen_model_name == 'spnet_new_version':
+                gen_model = SPNet(input_size=120, num_palette=16)
+            else:
+                gen_model = unt_rdefnet152(3, input_size=120)   
+            gen_model = gen_model.to(device=device)
+
+            dis_model_name = 'vgg19'
+            dis_model = vgg(dis_model_name, n_classes, freezing=True)
+            dis_model = dis_model.to(device=device)
+
+            model = GanModel(gen_model, dis_model, gen_model=gen_model_name)
         
         if weight is None:
-            weight_ep = os.listdir(f'checkpoints/{gan_model_name}/{gen_model_name}/')
+            weight_ep = os.listdir(f'checkpoints/{gan_model_name}/{gen_model_name[:5]}/{gen_model_name[6:]}/')
             if 'best.pth' in weight_ep:
                 weight_ep.remove('best.pth')
             if 'old_version' in weight_ep:
@@ -96,22 +102,20 @@ def gan_pred(image_id_list=None, weight=None, gen_model_name='spnet', write=Fals
             if 'last.pth' in weight_ep:
                 weight_ep.remove('last.pth')
             weight_ep.sort(key = lambda x:int(x[2:-4]))
-            weight_ep.append('best.pth')
+            weight_ep.append('last.pth')
         else:
             weight_ep = [weight]
 
         for w in weight_ep:
             print(w)
             w = w[:-4]
-            weight_ = f'checkpoints/{gan_model_name}/{gen_model_name}/{w}.pth'
+            weight_ = f'checkpoints/{gan_model_name}/{gen_model_name[:5]}/{gen_model_name[6:]}/{w}.pth'
+            # weight_ = f'checkpoints/{gan_model_name}/{gen_model_name[:5]}/{w}.pth'ff
             weight_ = torch.load(weight_)
-            model = GanModel(gen_model, dis_model, gen_model=gen_model_name)
             model.load_state_dict(weight_)
             model = model.to(device=device)
             model.eval()
-            # for i in range(16):
-            #     print(f'-------------\nchannel: {i}')
-            if gen_model_name == 'spnet':
+            if gen_model_name == 'spnet_old_version' or gen_model_name == 'spnet_old_version_2':
                 b, c     = model(image, pred=True)
                 # b[:, i] = b[:, i] * 0
                 if c.shape[-1] == 2:
@@ -139,7 +143,7 @@ def gan_pred(image_id_list=None, weight=None, gen_model_name='spnet', write=Fals
                     c_16 = b[:, 15].unsqueeze(1).expand([-1, 3, -1, -1]) * c[:, :, 3, 3].unsqueeze(-1).unsqueeze(-1).expand([-1, -1, b.shape[-2], b.shape[-1]])
                     out = c_1 + c_2 + c_3 + c_4 + c_5 + c_6 + c_7 + c_8 + c_9 + c_10 + c_11 + c_12 + c_13 + c_14 + c_15 + c_16
             else:
-                out = model(image)
+                b, out = model(image, pred=True)
             dis_out = model.dis_forward(out)
 
             ssim_loss = ssim(out, image)
@@ -154,10 +158,9 @@ def gan_pred(image_id_list=None, weight=None, gen_model_name='spnet', write=Fals
             if check_output:
                 out_o = out[0].permute((1, 2, 0))
                 out_o = out_o.data.cpu().numpy()
-                out_o[:, :, ::1] = out_o[:, :, ::-1]
                 cv2.imshow('a', out_o)
                 cv2.waitKey(0)
-                cv2.destroyWindow('a')
+                cv2.destroyAllWindows()
             if check_feature:
                 b = b.data.cpu().numpy()
                 b = b.astype(np.uint8)
@@ -166,7 +169,7 @@ def gan_pred(image_id_list=None, weight=None, gen_model_name='spnet', write=Fals
                     print(f'ch{i}')
                     cv2.imshow(f'ch{i}', feature)
                     cv2.waitKey(0)
-                    cv2.destroyWindow('ch{i}')
+                    cv2.destroyAllWindows()
             if check_receptive_field:
                 input = torch.ones_like(image, requires_grad=True)
                 one_out = model(input)
@@ -179,11 +182,12 @@ def gan_pred(image_id_list=None, weight=None, gen_model_name='spnet', write=Fals
                 receptive_field_mask = cv2.cvtColor(receptive_field_mask, cv2.COLOR_RGB2BGR)
                 cv2.imshow("receiptive_field_max_activation", receptive_field_mask)
                 cv2.waitKey(0)
-                cv2.destroyWindow("receiptive_field_max_activation")
+                cv2.destroyAllWindows()
             if check_networkcare:
                 xy = [50, 50]
                 out[0, 0, xy[1], xy[0]].backward()
                 gradient_of_input = image.grad[0, 0].data.cpu().numpy()
+                print(gradient_of_input[40, 40])
                 gradient_of_input_mean = np.mean(gradient_of_input)
                 gradient_of_input_mask = (gradient_of_input > (gradient_of_input_mean * 10)) * gradient_of_input_mean * 0.4
                 gradient_of_input_mask = gradient_of_input_mask + (gradient_of_input > (gradient_of_input_mean * 5)) * gradient_of_input_mean * 0.2
@@ -199,10 +203,20 @@ def gan_pred(image_id_list=None, weight=None, gen_model_name='spnet', write=Fals
                 cv2.setMouseCallback("networkcare_mask", click)
                 
                 cv2.waitKey(0)
-                cv2.destroyWindow("networkcare_mask")
+                cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     
     img_list = ['56746_1', '57990_1', '88100_1', '59998_2', '57820_1']
-    img_list = ['88100_1']
-    gan_pred(image_id_list=img_list, weight='best.pth', gen_model_name='unt_rdefnet152', write=False, check_output=True, check_receptive_field=False, check_networkcare=True)
+    # img_list = ['57820_1']
+    write = False
+    check_output=True
+    check_feature = True
+    check_receptive_field=False
+    check_networkcare=False
+    gan_pred(image_id_list=img_list, weight='last.pth', gen_model_name='spnet_new_version', 
+             write=write, 
+             check_output=check_output, 
+             check_feature=check_feature,
+             check_receptive_field=check_receptive_field, 
+             check_networkcare=check_networkcare)

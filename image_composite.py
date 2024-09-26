@@ -205,6 +205,6 @@ if __name__ == '__main__':
         device = torch.device("cpu")
     
     # 切換model時需要到gan.py換註解
-    model_name = 'unt_rdefnet152'
-    new_folder = 'D1'
-    composite(model_name=model_name, write=True, show=False, new_folder=new_folder, train_val='val')
+    model_name = None
+    new_folder = 'D3'
+    composite(model_name=model_name, write=True, show=False, new_folder=new_folder, train_val='train')
